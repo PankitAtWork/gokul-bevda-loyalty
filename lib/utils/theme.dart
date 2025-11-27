@@ -15,6 +15,12 @@ class AppTheme {
   static const Color lightPink = Color(0xFFFFF5F5);
   static const Color darkPink = Color(0xFFFFCCCC);
   static const Color lightGreen = Color(0xFF00C853);
+  static const Color semiDarkPink = Color(0xFFFCEDEE);
+  static const Color lightGray = Color(0xFFF9F9F9);
+  static const Color borderCalendarColor = Color(0xFFE9ECEF);
+  static const Color resetButtonColor = Color(0xFFE9ECEF);
+  static const Color doubleLightGray = Color(0xFFFAFAFA);
+  static const Color doubleLightPink = Color(0xFFF5F5F5);
   static const double cardRadius = 22.0;
 
   static ThemeData light() {

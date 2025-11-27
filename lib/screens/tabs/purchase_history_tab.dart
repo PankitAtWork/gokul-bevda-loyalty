@@ -737,206 +737,209 @@ class _PurchaseHistoryTabContentState extends State<PurchaseHistoryTabContent>
         return StatefulBuilder(
           builder: (context, setState) {
             return Dialog(
+              backgroundColor: Colors.transparent,
+              elevation: 0,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: Container(
-                constraints: const BoxConstraints(
-                  maxWidth: 400,
-                  maxHeight: 600,
-                ),
-                padding: const EdgeInsets.all(20),
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Header with title and close button
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: Material(
+                  color: Colors.white,
+                  child: Container(
+                    constraints: const BoxConstraints(
+                      maxWidth: 400,
+                      maxHeight: 600,
+                    ),
+                    color: Colors.white,
+                    padding: const EdgeInsets.all(20),
+                    child: SingleChildScrollView(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          // Header with title and close button
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text(
+                                'Filter Transactions',
+                                style: TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w500,
+                                  color: Colors.black,
+                                  fontFamily: 'Roboto Flex',
+                                ),
+                              ),
+                              IconButton(
+                                icon: SvgPicture.asset(
+                                  'assets/images/close.svg',
+                                  width: 17,
+                                  height: 17,
+                                ),
+                                onPressed: () =>
+                                    Navigator.of(dialogContext).pop(),
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 24),
+                          // Transaction Type Section
+                          _buildFilterSection(
+                            'Transaction Type',
+                            ['All', 'Earned', 'Redeemed'],
+                            selectedTransactionType,
+                            (value) {
+                              setState(() {
+                                selectedTransactionType = value;
+                              });
+                            },
+                          ),
+                          const SizedBox(height: 20),
+                          // Category Section
+                          _buildFilterSection(
+                            'Category',
+                            ['All', 'Purchase', 'Reward'],
+                            selectedCategory,
+                            (value) {
+                              setState(() {
+                                selectedCategory = value;
+                              });
+                            },
+                          ),
+                          const SizedBox(height: 20),
+                          // Date Range Section
                           const Text(
-                            'Filter Transactions',
+                            'Date Range',
                             style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
                               color: Colors.black,
                               fontFamily: 'Roboto Flex',
                             ),
                           ),
-                          IconButton(
-                            icon: SvgPicture.asset(
-                              'assets/images/close.svg',
-                              width: 17,
-                              height: 17,
-                            ),
-                            onPressed: () => Navigator.of(dialogContext).pop(),
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 24),
-                      // Transaction Type Section
-                      _buildFilterSection(
-                        'Transaction Type',
-                        [
-                          'All',
-                          'Earned',
-                          'Redeemed',
-                          if (selectedTabIndex == 0) 'Purchase',
-                          if (selectedTabIndex == 0) 'Reward',
-                        ],
-                        selectedTransactionType,
-                        (value) {
-                          setState(() {
-                            selectedTransactionType = value;
-                          });
-                        },
-                      ),
-                      const SizedBox(height: 20),
-                      // Category Section
-                      _buildFilterSection(
-                        'Category',
-                        [
-                          'All',
-                          'Downtown Spirits',
-                          'Vineyard',
-                          'Premium Wines',
-                          'Craft Beers',
-                        ],
-                        selectedCategory,
-                        (value) {
-                          setState(() {
-                            selectedCategory = value;
-                          });
-                        },
-                      ),
-                      const SizedBox(height: 20),
-                      // Date Range Section
-                      const Text(
-                        'Date Range',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black,
-                          fontFamily: 'Roboto Flex',
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _buildDateField(
-                              'Start Date',
-                              startDate,
-                              () async {
-                                final date = await showDatePicker(
-                                  context: context,
-                                  initialDate: DateTime.now(),
-                                  firstDate: DateTime(2020),
-                                  lastDate: DateTime.now(),
-                                );
-                                if (date != null) {
-                                  setState(() {
-                                    startDate =
-                                        '${date.day}/${date.month}/${date.year}';
-                                  });
-                                }
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: _buildDateField(
-                              'End Date',
-                              endDate,
-                              () async {
-                                final date = await showDatePicker(
-                                  context: context,
-                                  initialDate: DateTime.now(),
-                                  firstDate: DateTime(2020),
-                                  lastDate: DateTime.now(),
-                                );
-                                if (date != null) {
-                                  setState(() {
-                                    endDate =
-                                        '${date.day}/${date.month}/${date.year}';
-                                  });
-                                }
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 30),
-                      // Reset and Apply Buttons
-                      Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton(
-                              onPressed: () {
-                                setState(() {
-                                  selectedTransactionType = 'All';
-                                  selectedCategory = 'All';
-                                  startDate = '';
-                                  endDate = '';
-                                });
-                              },
-                              style: OutlinedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 14,
-                                ),
-                                side: const BorderSide(
-                                  color: AppTheme.primary,
-                                  width: 1.5,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _buildDateField(
+                                  'mm/dd/yyyy',
+                                  startDate,
+                                  () async {
+                                    final date = await showDatePicker(
+                                      context: context,
+                                      initialDate: DateTime.now(),
+                                      firstDate: DateTime(2020),
+                                      lastDate: DateTime.now(),
+                                    );
+                                    if (date != null) {
+                                      setState(() {
+                                        startDate =
+                                            '${date.day}/${date.month}/${date.year}';
+                                      });
+                                    }
+                                  },
                                 ),
                               ),
-                              child: const Text(
-                                'Reset',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppTheme.primary,
-                                  fontFamily: 'Roboto Flex',
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: _buildDateField(
+                                  'mm/dd/yyyy',
+                                  endDate,
+                                  () async {
+                                    final date = await showDatePicker(
+                                      context: context,
+                                      initialDate: DateTime.now(),
+                                      firstDate: DateTime(2020),
+                                      lastDate: DateTime.now(),
+                                    );
+                                    if (date != null) {
+                                      setState(() {
+                                        endDate =
+                                            '${date.day}/${date.month}/${date.year}';
+                                      });
+                                    }
+                                  },
                                 ),
                               ),
-                            ),
+                            ],
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: ElevatedButton(
-                              onPressed: () {
-                                // Apply filters here
-                                Navigator.of(dialogContext).pop();
-                                // TODO: Apply filters to the transaction list
-                              },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppTheme.primary,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 14,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
+                          const SizedBox(height: 30),
+                          // Reset and Apply Buttons
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              SizedBox(
+                                width: 80,
+                                child: OutlinedButton(
+                                  onPressed: () {
+                                    setState(() {
+                                      selectedTransactionType = 'All';
+                                      selectedCategory = 'All';
+                                      startDate = '';
+                                      endDate = '';
+                                    });
+                                  },
+                                  style: OutlinedButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 8,
+                                      horizontal: 8,
+                                    ),
+                                    minimumSize: const Size(0, 32),
+                                    backgroundColor: AppTheme.resetButtonColor,
+                                    side: BorderSide.none,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                  ),
+                                  child: const Text(
+                                    'Reset',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.black,
+                                      fontFamily: 'Roboto Flex',
+                                    ),
+                                  ),
                                 ),
                               ),
-                              child: const Text(
-                                'Apply',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                  fontFamily: 'Roboto Flex',
+                              const SizedBox(width: 12),
+                              SizedBox(
+                                width: 80,
+                                child: ElevatedButton(
+                                  onPressed: () {
+                                    // Apply filters here
+                                    Navigator.of(dialogContext).pop();
+                                    // TODO: Apply filters to the transaction list
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppTheme.primary,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 8,
+                                      horizontal: 8,
+                                    ),
+                                    minimumSize: const Size(0, 32),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                  ),
+                                  child: const Text(
+                                    'Apply',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      fontFamily: 'Roboto Flex',
+                                    ),
+                                  ),
                                 ),
                               ),
-                            ),
+                            ],
                           ),
                         ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
               ),
@@ -959,8 +962,8 @@ class _PurchaseHistoryTabContentState extends State<PurchaseHistoryTabContent>
         Text(
           title,
           style: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.bold,
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
             color: Colors.black,
             fontFamily: 'Roboto Flex',
           ),
@@ -979,20 +982,23 @@ class _PurchaseHistoryTabContentState extends State<PurchaseHistoryTabContent>
                   vertical: 10,
                 ),
                 decoration: BoxDecoration(
-                  color: isSelected ? AppTheme.primary : Colors.white,
+                  color: isSelected ? AppTheme.primary : AppTheme.lightPink,
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
-                    color: isSelected ? AppTheme.primary : Colors.grey[300]!,
+                    color: isSelected ? AppTheme.primary : AppTheme.lightPink!,
                     width: 1.5,
                   ),
                 ),
-                child: Text(
-                  option,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: isSelected ? Colors.white : Colors.black,
-                    fontFamily: 'Roboto Flex',
+                child: Padding(
+                  padding: const EdgeInsets.only(left: 6, right: 6),
+                  child: Text(
+                    option,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: isSelected ? Colors.white : Colors.black,
+                      fontFamily: 'Roboto Flex',
+                    ),
                   ),
                 ),
               ),
@@ -1009,9 +1015,9 @@ class _PurchaseHistoryTabContentState extends State<PurchaseHistoryTabContent>
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
         decoration: BoxDecoration(
-          color: AppTheme.lightPink,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey[300]!, width: 1),
+          color: AppTheme.bg,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppTheme.borderCalendarColor, width: 1.5),
         ),
         child: Row(
           children: [
@@ -1019,13 +1025,17 @@ class _PurchaseHistoryTabContentState extends State<PurchaseHistoryTabContent>
               child: Text(
                 value.isEmpty ? label : value,
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: 12,
                   color: value.isEmpty ? Colors.grey[600] : Colors.black,
                   fontFamily: 'Roboto Flex',
                 ),
               ),
             ),
-            Icon(Icons.calendar_today, size: 18, color: AppTheme.primary),
+            SvgPicture.asset(
+              'assets/images/calendar.svg',
+              width: 18,
+              height: 18,
+            ),
           ],
         ),
       ),

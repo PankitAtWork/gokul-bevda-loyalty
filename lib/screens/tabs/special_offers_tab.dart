@@ -36,6 +36,8 @@ class _SpecialOffersTabContentState extends State<SpecialOffersTabContent>
       setState(() {});
     });
     _loadSpecialOffers();
+    // NOTE: Changes to initState() require HOT RESTART (R), not hot reload (r)
+    // Hot reload won't work for modifications in this method
   }
 
   @override
@@ -556,225 +558,385 @@ class _SpecialOffersTabContentState extends State<SpecialOffersTabContent>
     showDialog(
       context: context,
       barrierDismissible: true,
-      builder: (BuildContext context) {
-        return Dialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Container(
-            constraints: const BoxConstraints(maxWidth: 400),
-            padding: const EdgeInsets.all(14),
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Header with title and close button
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          offer.title,
-                          style: const TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.black,
-                            fontFamily: 'Roboto Flex',
-                          ),
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.close, color: Colors.grey),
-                        onPressed: () => Navigator.of(context).pop(),
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  // Subtitle
-                  Text(
-                    offer.description,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey[700],
-                      fontFamily: 'Roboto Flex',
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  // Special Offer Details Section
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: AppTheme.lightPink,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Text(
-                          'SPECIAL OFFER DETAILS',
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w500,
-                            color: AppTheme.primary,
-                            fontFamily: 'Roboto Flex',
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          offer.description,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: Colors.grey[800],
-                            fontFamily: 'Roboto Flex',
-                            height: 1.5,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  // Available at these stores section
-                  const Text(
-                    'Available at these stores',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black,
-                      fontFamily: 'Roboto Flex',
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  // Store list with icon
-                  _buildStoreItem(
-                    'Downtown Cellars',
-                    '123 Main Street, India, NY 10001',
-                    '9AM-9PM',
-                    'In stock: 15 bottles',
-                  ),
-                  const SizedBox(height: 12),
-                  _buildStoreItem(
-                    'Downtown Cellars',
-                    '123 Main Street, India, NY 10001',
-                    '9AM-9PM',
-                    'In stock: 15 bottles',
-                  ),
-                  const SizedBox(height: 12),
-                  _buildStoreItem(
-                    'Downtown Cellars',
-                    '123 Main Street, India, NY 10001',
-                    '9AM-9PM',
-                    'In stock: 15 bottles',
-                  ),
-                  const SizedBox(height: 16),
-                  // Close button
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.primary,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: const Text(
-                        'Close',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          fontFamily: 'Roboto Flex',
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
+      barrierColor: Colors.black54,
+      builder: (BuildContext dialogContext) {
+        return _OfferDialog(offer: offer);
       },
     );
   }
+}
 
-  Widget _buildStoreItem(
-    String storeName,
-    String address,
-    String hours,
-    String stock,
-  ) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppTheme.lightPink,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Store icon
-          Padding(
-            padding: const EdgeInsets.only(top: 2),
-            child: SvgPicture.asset(
-              'assets/images/store.svg',
-              width: 20,
-              height: 20,
-            ),
-          ),
-          const SizedBox(width: 12),
-          // Store details
-          Expanded(
+class _OfferDialog extends StatefulWidget {
+  final SpecialOffer offer;
+
+  const _OfferDialog({required this.offer});
+
+  @override
+  State<_OfferDialog> createState() => _OfferDialogState();
+}
+
+class _OfferDialogState extends State<_OfferDialog> {
+  int? selectedStoreIndex;
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(6),
+        child: Material(
+          color: Colors.white,
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 900),
+            color: Colors.white,
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  storeName,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
-                    fontFamily: 'Roboto Flex',
+                // White header bar with close button
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(6),
+                      topRight: Radius.circular(6),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      // Close icon aligned to right
+                      GestureDetector(
+                        onTap: () => Navigator.of(context).pop(),
+                        child: Padding(
+                          padding: const EdgeInsets.all(5.0),
+                          child: SvgPicture.asset(
+                            'assets/images/close.svg',
+                            width: 15,
+                            height: 15,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  address,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[700],
-                    fontFamily: 'Roboto Flex',
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  hours,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[700],
-                    fontFamily: 'Roboto Flex',
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  stock,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: AppTheme.primary,
-                    fontWeight: FontWeight.w600,
-                    fontFamily: 'Roboto Flex',
+                // White content area
+                Flexible(
+                  child: Container(
+                    color: Colors.white,
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Main offer title - centered
+                          Center(
+                            child: Text(
+                              widget.offer.title,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.black,
+                                fontFamily: 'Roboto Flex',
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          // Subtitle
+                          Center(
+                            child: Text(
+                              widget.offer.description,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                color: AppTheme.unselected_tab_color,
+                                fontFamily: 'Roboto Flex',
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          // Special Offer Details Section
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: AppTheme.semiDarkPink,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Text(
+                                  'SPECIAL OFFER DETAILS',
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w500,
+                                    color: AppTheme.primary,
+                                    fontFamily: 'Roboto Flex',
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  widget.offer.description,
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 10,
+                                    color: AppTheme.unselected_tab_color,
+                                    fontFamily: 'Roboto Flex',
+                                    height: 1.5,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          // Available at these stores section
+                          Row(
+                            children: [
+                              SvgPicture.asset(
+                                'assets/images/store.svg',
+                                width: 22,
+                                height: 22,
+                              ),
+                              const SizedBox(width: 16),
+                              const Text(
+                                'Available at these stores',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w500,
+                                  color: Colors.black,
+                                  fontFamily: 'Roboto Flex',
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          // Store list with icon - dynamic from API
+                          if (widget.offer.stores.isEmpty)
+                            const Padding(
+                              padding: EdgeInsets.all(16.0),
+                              child: Center(
+                                child: Text(
+                                  'No stores available for this offer',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.grey,
+                                    fontFamily: 'Roboto Flex',
+                                  ),
+                                ),
+                              ),
+                            )
+                          else
+                            ...widget.offer.stores.asMap().entries.expand((
+                              entry,
+                            ) {
+                              final isLast =
+                                  entry.key == widget.offer.stores.length - 1;
+                              return [
+                                _buildStoreItem(
+                                  entry.key,
+                                  entry.value.name,
+                                  entry.value.address,
+                                  entry.value.hours,
+                                  entry.value.stock,
+                                  selectedStoreIndex == entry.key,
+                                  entry.key == 0,
+                                  isLast,
+                                  widget.offer.stores.length,
+                                  () {
+                                    setState(() {
+                                      selectedStoreIndex = entry.key;
+                                    });
+                                  },
+                                ),
+                                if (!isLast)
+                                  Divider(
+                                    color: const Color(0xFFCBCBCB),
+                                    thickness: 1,
+                                    height: 1,
+                                  ),
+                              ];
+                            }).toList(),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ],
             ),
           ),
-        ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStoreItem(
+    int index,
+    String storeName,
+    String address,
+    String hours,
+    String stock,
+    bool isSelected,
+    bool isFirst,
+    bool isLast,
+    int totalCount,
+    VoidCallback onTap,
+  ) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: isSelected ? AppTheme.lightPink : AppTheme.lightGray,
+          border: isSelected
+              ? const Border(
+                  left: BorderSide(color: AppTheme.primary, width: 2),
+                )
+              : const Border(
+                  left: BorderSide(color: Colors.transparent, width: 2),
+                ),
+          borderRadius: BorderRadius.only(
+            topLeft: isFirst ? const Radius.circular(8) : Radius.zero,
+            topRight: isFirst ? const Radius.circular(8) : Radius.zero,
+            bottomLeft: isLast ? const Radius.circular(8) : Radius.zero,
+            bottomRight: isLast ? const Radius.circular(8) : Radius.zero,
+          ),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Location pin icon
+            const SizedBox(width: 8),
+            // Store details
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Store name - bold black
+                  Row(
+                    children: [
+                      SvgPicture.asset(
+                        'assets/images/location.svg',
+                        width: 17,
+                        height: 17,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        storeName,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black,
+                          fontFamily: 'Roboto Flex',
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  // Address - smaller black (not gray)
+                  Row(
+                    children: [
+                      SvgPicture.asset('', width: 17, height: 17),
+                      const SizedBox(width: 7),
+                      Text(
+                        address,
+                        style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.unselected_tab_color,
+                          fontFamily: 'Roboto Flex',
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 8),
+                  // Time and phone hours in a column
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Hours with clock icon
+                      Row(
+                        children: [
+                          const SizedBox(width: 4),
+                          SvgPicture.asset(
+                            'assets/images/time_small.svg',
+                            width: 12,
+                            height: 12,
+                          ),
+                          const SizedBox(width: 10),
+                          Text(
+                            hours,
+                            style: const TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w500,
+                              color: AppTheme.unselected_tab_color,
+                              fontFamily: 'Roboto Flex',
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(width: 10),
+                      // Phone hours with phone icon,
+                      Row(
+                        children: [
+                          const SizedBox(width: 4),
+                          SvgPicture.asset(
+                            'assets/images/phone.svg',
+                            width: 12,
+                            height: 12,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            hours,
+                            style: const TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w500,
+                              color: AppTheme.unselected_tab_color,
+                              fontFamily: 'Roboto Flex',
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  // Stock with green checkmark icon
+                  Row(
+                    children: [
+                      const SizedBox(width: 4),
+                      SvgPicture.asset(
+                        'assets/images/right.svg',
+                        width: 12,
+                        height: 12,
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        stock,
+                        style: const TextStyle(
+                          fontSize: 10,
+                          color: AppTheme.darkGreen,
+                          fontWeight: FontWeight.w400,
+                          fontFamily: 'Roboto Flex',
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

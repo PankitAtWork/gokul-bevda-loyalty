@@ -5,6 +5,7 @@ import '../models/points_data.dart';
 import '../models/special_offer.dart';
 import '../models/recent_activity.dart';
 import '../models/purchase_history.dart';
+import '../models/store.dart';
 
 class ApiService {
   final Dio dio;
@@ -61,6 +62,30 @@ class ApiService {
     await Future.delayed(const Duration(seconds: 1));
 
     // Return mock data matching the Figma design
+    final mockStores = [
+      Store(
+        id: '1',
+        name: 'Downtown Cellars',
+        address: '123 Main Street, India, NY 10001',
+        hours: '9AM-9PM',
+        stock: 'In stock: 15 bottles',
+      ),
+      Store(
+        id: '2',
+        name: 'Downtown Cellars',
+        address: '123 Main Street, India, NY 10001',
+        hours: '9AM-9PM',
+        stock: 'In stock: 15 bottles',
+      ),
+      Store(
+        id: '3',
+        name: 'Downtown Cellars',
+        address: '123 Main Street, India, NY 10001',
+        hours: '9AM-9PM',
+        stock: 'In stock: 15 bottles',
+      ),
+    ];
+
     final allOffers = [
       SpecialOffer(
         id: '1',
@@ -73,6 +98,7 @@ class ApiService {
         tag: 'Limited Time',
         type: 'buy1get1',
         iconType: 'bottle',
+        stores: mockStores,
       ),
       SpecialOffer(
         id: '2',
@@ -85,6 +111,7 @@ class ApiService {
         tag: 'Popular',
         type: 'discounts',
         iconType: 'percentage',
+        stores: mockStores,
       ),
       SpecialOffer(
         id: '3',
@@ -97,6 +124,7 @@ class ApiService {
         tag: 'Limited Time',
         type: 'buy1get1',
         iconType: 'bottle',
+        stores: mockStores,
       ),
       SpecialOffer(
         id: '4',
@@ -109,6 +137,7 @@ class ApiService {
         tag: 'Popular',
         type: 'discounts',
         iconType: 'percentage',
+        stores: mockStores,
       ),
     ];
 

@@ -9,11 +9,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:bevdaa/main.dart';
+import 'package:bevdaa/services/api_service.dart';
+import 'package:bevdaa/services/auth_service.dart';
 
 void main() {
   testWidgets('Counter increments smoke test', (WidgetTester tester) async {
     // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+    final apiService = ApiService.create(baseUrl: 'https://api.example.com');
+    final authService = AuthService(apiService);
+    await tester.pumpWidget(MyApp(authService: authService));
 
     // Verify that our counter starts at 0.
     expect(find.text('0'), findsOneWidget);
