@@ -192,7 +192,7 @@ class _PurchaseHistoryTabContentState extends State<PurchaseHistoryTabContent>
                         ),
                         IconButton(
                           icon: SvgPicture.asset(
-                            'assets/images/filter_copy.svg',
+                            'assets/images/filter.svg',
                             width: 17,
                             height: 17,
                           ),
