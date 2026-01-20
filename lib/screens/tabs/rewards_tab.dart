@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import '../../config/api_config.dart';
 import '../../utils/theme.dart';
 import '../../utils/responsive.dart';
 import '../../services/api_service.dart';
@@ -15,7 +16,7 @@ class RewardsTabContent extends StatefulWidget {
 
 class _RewardsTabContentState extends State<RewardsTabContent> {
   final ApiService _apiService = ApiService.create(
-    baseUrl: 'https://api.example.com',
+    baseUrl: ApiConfig.baseUrl,
   );
   final TextEditingController _amountController = TextEditingController(
     text: '75',

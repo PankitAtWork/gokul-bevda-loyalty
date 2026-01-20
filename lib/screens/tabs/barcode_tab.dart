@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import '../../config/api_config.dart';
 import '../../utils/theme.dart';
 import '../../services/api_service.dart';
 
@@ -14,7 +15,7 @@ class BarcodeTabContent extends StatefulWidget {
 
 class _BarcodeTabContentState extends State<BarcodeTabContent> {
   final ApiService _apiService = ApiService.create(
-    baseUrl: 'https://api.example.com',
+    baseUrl: ApiConfig.baseUrl,
   );
 
   bool _isLoading = true;

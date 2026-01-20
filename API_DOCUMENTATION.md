@@ -3,7 +3,7 @@
 ## Overview
 This document outlines all required APIs for the Bevdaa Flutter application, including request/response structures, authentication requirements, and error handling.
 
-**Base URL**: `https://api.yourdomain.com` (Replace with actual API URL)
+**Base URL**: `https://gposdataservice.gpossystem.com/api/v1/` (Replace with actual API URL)
 
 **Authentication**: All protected endpoints require a Bearer token in the Authorization header:
 ```

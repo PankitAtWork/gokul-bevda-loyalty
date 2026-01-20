@@ -22,6 +22,7 @@ class AppTheme {
   static const Color doubleLightGray = Color(0xFFFAFAFA);
   static const Color doubleLightPink = Color(0xFFF5F5F5);
   static const double cardRadius = 22.0;
+  static const Color splashColor = Color(0xFFF4EDDB);
 
   static ThemeData light() {
     final base = ThemeData.light();

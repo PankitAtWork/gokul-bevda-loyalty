@@ -5,7 +5,7 @@
 ### 1. **API Service Structure** ✅
 - **Location**: `lib/services/api_service.dart`
 - **Status**: Properly structured with Dio HTTP client
-- **Base URL**: Currently set to `'https://api.yourdomain.com'` in `main.dart`
+- **Base URL**: Centralized in `lib/config/api_config.dart` (`ApiConfig.baseUrl = 'https://gposdataservice.gpossystem.com/api/v1/'`)
 - **Timeouts**: Configured (10 seconds connect/receive)
 
 ### 2. **API Endpoints** ✅
@@ -77,8 +77,7 @@ All models have `fromJson` and `toJson` methods:
 ### 8. **Hardcoded Values to Replace** ⚠️
 
 #### Base URLs:
-- `lib/main.dart` line 15: `'https://api.yourdomain.com'`
-- Multiple screens use `'https://api.example.com'` (these should use shared instance)
+- ✅ Handled globally via `ApiConfig.baseUrl` (update here to change environments)
 
 #### Mock Data:
 - All API methods in `api_service.dart` return mock data
@@ -98,7 +97,7 @@ All models have `fromJson` and `toJson` methods:
    - Parse responses using model `fromJson()` methods
 
 3. **Update Base URL**
-   - Replace `'https://api.yourdomain.com'` in `main.dart` with actual API URL
+   - Replace `'https://gposdataservice.gpossystem.com/api/v1/'` in `main.dart` with actual API URL
    - Consider using environment variables or config file
 
 4. **Centralize ApiService Instance**

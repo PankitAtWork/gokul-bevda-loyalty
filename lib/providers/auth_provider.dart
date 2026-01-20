@@ -1,9 +1,14 @@
 // lib/providers/auth_provider.dart
 import 'package:flutter/material.dart';
+import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:dio/dio.dart';
 
 import '../services/auth_service.dart';
+import '../models/user.dart';
+import '../models/dashboard_data.dart';
+import '../models/transaction_history.dart';
+import '../utils/validators.dart';
 
 enum AuthFlow { idle, sendingOtp, verifyingOtp, loggingIn, creatingAccount }
 
@@ -18,9 +23,31 @@ class AuthProvider with ChangeNotifier {
 
   // Auth data
   String? token;
+  User? currentUser;
   String? currentIdentifier; // phone/email being processed
+  String? currentName; // user name being processed
   String? otpPurpose; // "login" or "signup"
   bool otpSent = false;
+  String? receivedOtp; // For client-side verification
+
+  // Dashboard data
+  DashboardData? dashboardData;
+  bool loadingDashboard = false;
+
+  List<TransactionHistoryItem> transactionHistory = [];
+  bool loadingTransactionHistory = false;
+
+  double get totalPointsEarned {
+    return transactionHistory
+        .where((t) => t.collectedPoint > 0)
+        .fold(0.0, (sum, t) => sum + t.collectedPoint);
+  }
+
+  double get totalPointsRedeemed {
+    return transactionHistory
+        .where((t) => t.collectedPoint < 0)
+        .fold(0.0, (sum, t) => sum + t.collectedPoint.abs());
+  }
 
   // ---- Helpers ----
   void _setUiBlocked(bool blocked) {
@@ -39,9 +66,51 @@ class AuthProvider with ChangeNotifier {
     token = t;
   }
 
-  Future<String?> loadToken() async {
+  Future<void> _saveUser(User user) async {
     final sp = await SharedPreferences.getInstance();
-    return sp.getString('auth_token');
+    // Save full user json
+    await sp.setString('user_data', jsonEncode(user.toJson()));
+    // Also save customer_id for quick check if needed, though user_data is enough
+    if (user.customerId != null) {
+      await sp.setInt('customer_id', user.customerId!);
+    }
+
+    // Maintain token compatibility if needed, but user said "dont use token to verify auth"
+    if (token != null) {
+      await sp.setString('auth_token', token!);
+    }
+
+    currentUser = user;
+    notifyListeners();
+  }
+
+  Future<void> loadUser() async {
+    final sp = await SharedPreferences.getInstance();
+    final userStr = sp.getString('user_data');
+    if (userStr != null && userStr.isNotEmpty) {
+      try {
+        final Map<String, dynamic> userMap = jsonDecode(userStr);
+        currentUser = User.fromJson(userMap);
+
+        // Restore token if it exists in prefs, just in case api service needs it
+        if (currentUser?.customerId != null) {
+          token = currentUser!.customerId.toString();
+        } else {
+          token = sp.getString('auth_token');
+        }
+
+        notifyListeners();
+      } catch (e) {
+        print("Error loading user: $e");
+        await clearAuth();
+      }
+    }
+  }
+
+  // Renamed or deprecated loadToken in favor of loadUser
+  Future<String?> loadToken() async {
+    await loadUser();
+    return token;
   }
 
   // Generic error dialog helper (caller must supply BuildContext)
@@ -63,38 +132,151 @@ class AuthProvider with ChangeNotifier {
 
   // ---- Public methods called by UI ----
 
-  /// Login with password
-  Future<bool> loginWithPassword({
+  /// Login (Password or OTP)
+  Future<bool> login({
     required String identifier,
-    required String password,
+    String? password,
+    bool custOtp = false,
     required BuildContext ctx,
   }) async {
     _setUiBlocked(true);
-    _setFlow(AuthFlow.loggingIn);
+    _setFlow(
+      AuthFlow.loggingIn,
+    ); // reuse loggingIn flow or create new if needed
     try {
-      final resp = await authService.loginPassword(
+      final resp = await authService.login(
         identifier: identifier,
         password: password,
+        custOtp: custOtp,
       );
-      // Adapt below according to your API shape
+      // Handle nested API response structure
       if (resp.statusCode == 200) {
-        final data = resp.data;
-        final serverToken = data['token'] as String?;
-        if (serverToken != null && serverToken.isNotEmpty) {
-          await _saveToken(serverToken);
-          return true;
-        } else {
-          _showError(
-            ctx,
-            data['message']?.toString() ?? 'Login succeeded but token missing',
-          );
-          return false;
+        final responseData = resp.data;
+
+        // Check if response has nested Data structure
+        if (responseData is Map<String, dynamic>) {
+          // First check outer Result
+          final outerResult = responseData['Result'];
+          if (outerResult == true && responseData.containsKey('Data')) {
+            final innerData = responseData['Data'];
+
+            if (innerData is Map<String, dynamic>) {
+              final innerResult = innerData['Result'];
+              final innerStatus = innerData['Status'];
+              final innerMsg = innerData['Msg']?.toString() ?? '';
+
+              if (innerResult == true && innerStatus == 200) {
+                // Success! Parse User
+                if (innerData.containsKey('Data') &&
+                    innerData['Data'] is List) {
+                  final userList = innerData['Data'] as List;
+                  if (userList.isNotEmpty) {
+                    final userData = userList.first;
+                    if (userData is Map<String, dynamic>) {
+                      try {
+                        currentUser = User.fromJson(userData);
+
+                        notifyListeners();
+
+                        // Handle OTP case
+                        if (custOtp) {
+                          // Try to find OTP in response
+                          // It could be in innerData or userData
+                          // Logic says: "return true with OTP, so we will locally handle api verification"
+                          // We need to find where OTP is.
+                          // Assuming it might be in 'OTP' field in data or msg?
+                          // Let's check userData first.
+                          var otp = userData['OTP']?.toString();
+                          if (otp == null && innerData.containsKey('OTP')) {
+                            otp = innerData['OTP']?.toString();
+                          }
+
+                          // If we found OTP, save it and return true.
+                          // The UI will then ask user to enter OTP and compare with this.
+                          if (otp != null && otp.isNotEmpty) {
+                            receivedOtp = otp;
+                            notifyListeners();
+                            return true;
+                          }
+                        }
+
+                        // Handle Token
+                        String? serverToken;
+                        if (userData['istoken'] == true) {
+                          serverToken = userData['tokenno'];
+                        }
+
+                        // If no token in user object, check if we need to backup or use dummy
+                        // keeping existing logic for token fallback if exists elsewhere
+                        if (serverToken == null || serverToken.isEmpty) {
+                          // Look for token in other places just in case
+                          serverToken = innerData['Token'] as String?;
+                        }
+
+                        // Save user data
+                        await _saveUser(currentUser!);
+
+                        // Check customer_id for auth verification as requested
+                        if (currentUser!.customerId != null) {
+                          return true;
+                        } else {
+                          _showError(
+                            ctx,
+                            "Login succeeded but Customer ID missing.",
+                          );
+                          return false;
+                        }
+                      } catch (e) {
+                        print("Error parsing user: $e");
+                        _showError(
+                          ctx,
+                          "Error parsing user data received from server.",
+                        );
+                        return false;
+                      }
+                    }
+                  }
+                }
+              } else {
+                // Inner failure
+                final errorMsg = innerMsg.isNotEmpty
+                    ? innerMsg
+                    : 'Authentication failed. Please check your credentials and try again.';
+                _showError(ctx, errorMsg);
+                return false;
+              }
+            }
+          }
         }
+
+        // Fallback or explicit token check from previous logic (if the structure is different than expected)
+        // If we reached here, it means we didn't return true from above block.
+
+        // ... (Keep existing fallback if needed, or just fail if strict structure)
+
+        _showError(ctx, responseData['Msg']?.toString() ?? 'Login failed');
+        return false;
       } else {
         _showError(ctx, resp.data?.toString() ?? 'Login failed');
         return false;
       }
     } on DioException catch (e) {
+      // Handle DioException with nested response structure
+      if (e.response?.statusCode == 200 && e.response?.data != null) {
+        final responseData = e.response!.data;
+        if (responseData is Map<String, dynamic> &&
+            responseData.containsKey('Data')) {
+          final innerData = responseData['Data'];
+          if (innerData is Map<String, dynamic>) {
+            final innerMsg = innerData['Msg']?.toString() ?? '';
+            if (innerMsg.isNotEmpty) {
+              _showError(ctx, innerMsg);
+              return false;
+            }
+          }
+        }
+      }
+
       final msg =
           e.response?.data?.toString() ??
           e.message ??
@@ -255,14 +437,194 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
+  /// Register user (API integration)
+  Future<bool> registerUser({
+    required String phoneOrEmail,
+    required String password,
+    required String name,
+    String? email,
+    String? phone,
+    required BuildContext ctx,
+  }) async {
+    _setUiBlocked(true);
+    _setFlow(AuthFlow.creatingAccount);
+    try {
+      // Determine phone or email
+      String finalEmail = email ?? '';
+      String finalPhone = phone ?? '';
+
+      // If neither explicitly provided, derive from phoneOrEmail
+      if (finalEmail.isEmpty && finalPhone.isEmpty) {
+        if (Validators.isEmail(phoneOrEmail)) {
+          finalEmail = phoneOrEmail;
+          finalPhone = ''; // Explicitly blank
+        } else {
+          finalPhone = phoneOrEmail;
+          finalEmail = ''; // Explicitly blank
+        }
+      } else {
+        // If one was provided, ensure the other is blank if it was null
+        if (email != null && phone == null) finalPhone = '';
+        if (phone != null && email == null) finalEmail = '';
+      }
+
+      final resp = await authService.register(
+        password: password,
+        name: name,
+        email: finalEmail,
+        phone: finalPhone,
+        otp: true,
+      );
+      if (resp.statusCode == 200) {
+        final responseData = resp.data;
+        if (responseData is Map<String, dynamic>) {
+          final rootResult = responseData['Result'];
+          final rootMsg = responseData['Msg']?.toString() ?? '';
+
+          if (rootResult == false) {
+            _showError(
+              ctx,
+              rootMsg.isNotEmpty ? rootMsg : 'Registration failed.',
+            );
+            return false;
+          }
+
+          // Handle nested Data structure if present and not null
+          if (responseData.containsKey('Data') &&
+              responseData['Data'] != null) {
+            final innerData = responseData['Data'];
+            if (innerData is Map<String, dynamic>) {
+              final innerResult = innerData['Result'];
+              final innerStatus = innerData['Status'];
+              final innerMsg = innerData['Msg']?.toString() ?? '';
+
+              if (innerResult == false ||
+                  innerStatus == 401 ||
+                  (innerStatus != null &&
+                      innerStatus != 0 &&
+                      innerStatus != 200)) {
+                _showError(
+                  ctx,
+                  innerMsg.isNotEmpty ? innerMsg : 'Registration failed.',
+                );
+                return false;
+              }
+              if (innerResult == true) {
+                // Registration success
+                return true;
+              }
+            }
+          }
+        }
+        // Fallback: Success if statusCode == 200 and root Result was not false
+        return true;
+      } else {
+        _showError(ctx, resp.data?.toString() ?? 'Registration failed');
+        return false;
+      }
+    } on DioException catch (e) {
+      final msg =
+          e.response?.data?.toString() ?? e.message ?? 'Registration failed.';
+      _showError(ctx, msg);
+      return false;
+    } catch (e) {
+      _showError(ctx, e.toString());
+      return false;
+    } finally {
+      _setUiBlocked(false);
+      _setFlow(AuthFlow.idle);
+    }
+  }
+
   /// Clear auth (for logout)
   Future<void> clearAuth() async {
     final sp = await SharedPreferences.getInstance();
     await sp.remove('auth_token');
+    await sp.remove('user_data');
+    await sp.remove('customer_id');
+
     token = null;
+    currentUser = null;
     currentIdentifier = null;
+    currentName = null;
     otpPurpose = null;
     otpSent = false;
     notifyListeners();
+  }
+
+  /// Fetch dashboard data
+  Future<void> fetchDashboard(BuildContext ctx) async {
+    // If we don't have a user, try loading from prefs
+    if (currentUser == null) {
+      await loadUser();
+    }
+
+    if (currentUser == null || currentUser!.customerId == null) {
+      // Cannot fetch dashboard without customerId
+      return;
+    }
+
+    loadingDashboard = true;
+    notifyListeners();
+
+    try {
+      final resp = await authService.getDashboard(
+        customerId: currentUser!.customerId!,
+      );
+
+      if (resp.statusCode == 200) {
+        final responseData = resp.data;
+        if (responseData is Map<String, dynamic> &&
+            responseData['Result'] == true &&
+            responseData['Data'] != null) {
+          dashboardData = DashboardData.fromJson(responseData['Data']);
+        }
+      }
+    } catch (e) {
+      print("Error fetching dashboard: $e");
+    } finally {
+      loadingDashboard = false;
+      notifyListeners();
+    }
+  }
+
+  /// Fetch Transaction History
+  Future<void> fetchTransactionHistory(BuildContext ctx) async {
+    if (currentUser == null) {
+      await loadUser();
+    }
+    if (currentUser == null || currentUser!.customerId == null) return;
+
+    loadingTransactionHistory = true;
+    notifyListeners();
+
+    try {
+      final resp = await authService.getTransactionHistory(
+        customerId: currentUser!.customerId!,
+      );
+      if (resp.statusCode == 200) {
+        final response = TransactionHistoryResponse.fromJson(resp.data);
+        if (response.result) {
+          final sortedData = response.data;
+          sortedData.sort((a, b) {
+            try {
+              DateTime dateA = DateTime.parse(a.txnDate);
+              DateTime dateB = DateTime.parse(b.txnDate);
+              return dateB.compareTo(dateA);
+            } catch (e) {
+              return 0;
+            }
+          });
+          transactionHistory = sortedData;
+        } else {
+          debugPrint('Transaction history API error: ${response.msg}');
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fetching transaction history: $e');
+    } finally {
+      loadingTransactionHistory = false;
+      notifyListeners();
+    }
   }
 }

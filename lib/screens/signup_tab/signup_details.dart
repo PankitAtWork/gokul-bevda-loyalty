@@ -30,6 +30,7 @@ class _SignupDetailWidgetState extends State<SignupDetailWidget> {
 
   Future<void> _sendSignupOtp(AuthProvider auth) async {
     if (!_formKey.currentState!.validate()) return;
+    auth.currentName = _nameCtrl.text.trim();
     final ok = await auth.sendOtp(
       identifier: _identifierCtrl.text.trim(),
       purpose: 'signup',

@@ -1,11 +1,14 @@
-// lib/screens/tabs/home_tab.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:provider/provider.dart';
+import '../../providers/auth_provider.dart';
+import '../../config/api_config.dart';
 import '../../utils/theme.dart';
 import '../../models/points_data.dart';
 import '../../models/special_offer.dart';
 import '../../models/recent_activity.dart';
 import '../../services/api_service.dart';
+import 'package:intl/intl.dart';
 
 class HomeTabContent extends StatefulWidget {
   final Function(int)? onNavigateToTab;
@@ -17,22 +20,18 @@ class HomeTabContent extends StatefulWidget {
 }
 
 class _HomeTabContentState extends State<HomeTabContent> {
-  final ApiService _apiService = ApiService.create(
-    baseUrl: 'https://api.example.com',
-  );
-
-  bool _isLoadingPoints = true;
-  bool _isLoadingOffers = true;
-  bool _isLoadingActivity = true;
+  final ApiService _apiService = ApiService.create(baseUrl: ApiConfig.baseUrl);
 
   PointsData? _pointsData;
-  List<SpecialOffer> _offers = [];
   List<RecentActivity> _activities = [];
 
   @override
   void initState() {
     super.initState();
     _loadData();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Provider.of<AuthProvider>(context, listen: false).fetchDashboard(context);
+    });
   }
 
   Future<void> _loadData() async {
@@ -41,17 +40,6 @@ class _HomeTabContentState extends State<HomeTabContent> {
       if (mounted) {
         setState(() {
           _pointsData = data;
-          _isLoadingPoints = false;
-        });
-      }
-    });
-
-    // Load offers
-    _apiService.getSpecialOffersForHome().then((offers) {
-      if (mounted) {
-        setState(() {
-          _offers = offers;
-          _isLoadingOffers = false;
         });
       }
     });
@@ -61,7 +49,6 @@ class _HomeTabContentState extends State<HomeTabContent> {
       if (mounted) {
         setState(() {
           _activities = activities;
-          _isLoadingActivity = false;
         });
       }
     });
@@ -69,35 +56,50 @@ class _HomeTabContentState extends State<HomeTabContent> {
 
   @override
   Widget build(BuildContext context) {
+    final auth = Provider.of<AuthProvider>(context);
+    final dashboardData = auth.dashboardData;
+    final isLoadingDashboard = auth.loadingDashboard;
+
+    // Use dashboard points if available, otherwise fallback to _pointsData
+    final displayPoints =
+        dashboardData?.customerPoints ?? _pointsData?.points ?? 0;
+
     return Container(
       color: AppTheme.bg,
       child: SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Your Points Section
-              _buildPointsSection(),
+        child: RefreshIndicator(
+          onRefresh: () async {
+            await auth.fetchDashboard(context);
+            await _loadData();
+          },
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Your Points Section
+                _buildPointsSection(displayPoints, isLoadingDashboard),
 
-              const SizedBox(height: 20),
+                const SizedBox(height: 20),
 
-              // Special Offers Section
-              _buildSpecialOffersSection(),
+                // Special Offers Section
+                _buildSpecialOffersSection(auth),
 
-              const SizedBox(height: 20),
+                const SizedBox(height: 20),
 
-              // Recent Activity Section
-              _buildRecentActivitySection(),
+                // Recent Activity Section
+                _buildRecentActivitySection(auth),
 
-              const SizedBox(height: 20),
-            ],
+                const SizedBox(height: 20),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildPointsSection() {
+  Widget _buildPointsSection(int points, bool loading) {
     return Container(
       margin: const EdgeInsets.all(0),
       decoration: BoxDecoration(
@@ -106,7 +108,7 @@ class _HomeTabContentState extends State<HomeTabContent> {
       ),
       child: Stack(
         children: [
-          // Red gradient overlay from intersect.svg - positioned behind the icon
+          // Red gradient overlay
           Positioned(
             top: 0,
             left: 0,
@@ -133,7 +135,6 @@ class _HomeTabContentState extends State<HomeTabContent> {
                       child: Stack(
                         clipBehavior: Clip.none,
                         children: [
-                          // Background hexagon - behind (larger to show behind the icon)
                           Positioned.fill(
                             child: Opacity(
                               opacity: 0.3,
@@ -143,7 +144,6 @@ class _HomeTabContentState extends State<HomeTabContent> {
                               ),
                             ),
                           ),
-                          // Icon on top - in front with top padding
                           Positioned(
                             top: 25,
                             left: 0,
@@ -179,7 +179,7 @@ class _HomeTabContentState extends State<HomeTabContent> {
                                     fontFamily: 'Roboto Flex',
                                   ),
                                 ),
-                                if (!_isLoadingPoints && _pointsData != null)
+                                if (!loading)
                                   Container(
                                     decoration: BoxDecoration(
                                       gradient: const LinearGradient(
@@ -195,9 +195,7 @@ class _HomeTabContentState extends State<HomeTabContent> {
                                     child: Material(
                                       color: Colors.transparent,
                                       child: InkWell(
-                                        onTap: () {
-                                          // Handle redeem points
-                                        },
+                                        onTap: () {},
                                         borderRadius: BorderRadius.circular(8),
                                         child: Container(
                                           padding: const EdgeInsets.symmetric(
@@ -217,7 +215,7 @@ class _HomeTabContentState extends State<HomeTabContent> {
                                       ),
                                     ),
                                   ),
-                                if (_isLoadingPoints)
+                                if (loading)
                                   const SizedBox(
                                     width: 20,
                                     height: 20,
@@ -231,9 +229,9 @@ class _HomeTabContentState extends State<HomeTabContent> {
                               ],
                             ),
                           ),
-                          if (!_isLoadingPoints && _pointsData != null)
+                          if (!loading)
                             Text(
-                              '${_pointsData!.points} Points >',
+                              '$points Points >',
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 12,
@@ -246,8 +244,7 @@ class _HomeTabContentState extends State<HomeTabContent> {
                     ),
                   ],
                 ),
-
-                if (_isLoadingPoints)
+                if (loading)
                   const SizedBox(
                     height: 40,
                     child: Center(
@@ -307,7 +304,28 @@ class _HomeTabContentState extends State<HomeTabContent> {
     );
   }
 
-  Widget _buildSpecialOffersSection() {
+  Widget _buildSpecialOffersSection(AuthProvider auth) {
+    final dashboardOffers = auth.dashboardData?.offers ?? [];
+    final isLoading = auth.loadingDashboard;
+
+    // Map DashboardOffer to SpecialOffer
+    final offers = dashboardOffers
+        .map(
+          (o) => SpecialOffer(
+            id: o.saleId.toString(),
+            title: o.saleName,
+            description: o.note ?? o.promoTargetName ?? '',
+            category: o.targetTypeDesc ?? 'Special Offer',
+            availability: 'All Stores',
+            expires: o.endDate?.split('T').first ?? 'N/A',
+            tag: 'Limited Time',
+            type: 'all',
+            iconType: 'bottle',
+            stores: [],
+          ),
+        )
+        .toList();
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.all(16),
@@ -343,7 +361,7 @@ class _HomeTabContentState extends State<HomeTabContent> {
               ),
               Row(
                 children: [
-                  if (_isLoadingOffers)
+                  if (isLoading)
                     const SizedBox(
                       width: 16,
                       height: 16,
@@ -366,7 +384,6 @@ class _HomeTabContentState extends State<HomeTabContent> {
                       ),
                       child: GestureDetector(
                         onTap: () {
-                          // Navigate to Special Offers tab (index 2)
                           if (widget.onNavigateToTab != null) {
                             widget.onNavigateToTab!(2);
                           }
@@ -387,7 +404,7 @@ class _HomeTabContentState extends State<HomeTabContent> {
             ],
           ),
           const SizedBox(height: 16),
-          if (_isLoadingOffers)
+          if (isLoading && offers.isEmpty)
             const SizedBox(
               height: 100,
               child: Center(
@@ -396,7 +413,7 @@ class _HomeTabContentState extends State<HomeTabContent> {
                 ),
               ),
             )
-          else if (_offers.isEmpty)
+          else if (offers.isEmpty)
             const Center(
               child: Padding(
                 padding: EdgeInsets.all(20),
@@ -410,7 +427,7 @@ class _HomeTabContentState extends State<HomeTabContent> {
               ),
             )
           else
-            ..._offers.map((offer) => _buildOfferCard(offer)),
+            ...offers.map((offer) => _buildOfferCard(offer)),
         ],
       ),
     );
@@ -432,14 +449,12 @@ class _HomeTabContentState extends State<HomeTabContent> {
             height: 43,
             child: Stack(
               children: [
-                // Background SVG
                 Positioned.fill(
                   child: SvgPicture.asset(
                     'assets/images/red_round.svg',
                     fit: BoxFit.cover,
                   ),
                 ),
-                // Icon content
                 Center(
                   child: offer.iconType == 'percentage'
                       ? SvgPicture.asset(
@@ -448,7 +463,7 @@ class _HomeTabContentState extends State<HomeTabContent> {
                           height: 15,
                         )
                       : SvgPicture.asset(
-                          'assets/images/celebration.svg', // TODO: Replace with bottle.svg when available
+                          'assets/images/celebration.svg',
                           width: 20,
                           height: 20,
                         ),
@@ -490,7 +505,39 @@ class _HomeTabContentState extends State<HomeTabContent> {
     );
   }
 
-  Widget _buildRecentActivitySection() {
+  Widget _buildRecentActivitySection(AuthProvider auth) {
+    final dashboardTxns = auth.dashboardData?.transactions ?? [];
+    final isLoading = auth.loadingDashboard;
+
+    // Map DashboardTransaction to RecentActivity
+    final activities = dashboardTxns.map((t) {
+      final pointsValue = (t.collectedPoint ?? 0);
+      final isEarned = pointsValue > 0;
+
+      // Format date: "July 28, 2023 • 6:42 PM"
+      String formattedDate = '';
+      try {
+        final date = DateTime.parse(t.txnDate);
+        formattedDate = DateFormat("MMMM d, yyyy '•' h:mm a").format(date);
+      } catch (e) {
+        formattedDate = t.txnDate; // Fallback to raw string if parsing fails
+      }
+
+      return RecentActivity(
+        id: t.txnId,
+        type: isEarned ? 'Points Earned' : 'Points Redeemed',
+        description: 'Purchase at NO DATA FOUND',
+        date: formattedDate,
+        time: '', // Time is now included in the formattedDate string
+        points: pointsValue.abs().toInt(),
+        isPositive: isEarned,
+      );
+    }).toList();
+
+    // If dashboard activities empty but we have mock activities, use those for visual filler if desired,
+    // but better to show real data.
+    final displayActivities = activities.isNotEmpty ? activities : _activities;
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.all(16),
@@ -526,7 +573,7 @@ class _HomeTabContentState extends State<HomeTabContent> {
               ),
               Row(
                 children: [
-                  if (_isLoadingActivity)
+                  if (isLoading)
                     const SizedBox(
                       width: 16,
                       height: 16,
@@ -549,7 +596,6 @@ class _HomeTabContentState extends State<HomeTabContent> {
                       ),
                       child: GestureDetector(
                         onTap: () {
-                          // Navigate to Purchase History tab (index 3)
                           if (widget.onNavigateToTab != null) {
                             widget.onNavigateToTab!(3);
                           }
@@ -570,7 +616,7 @@ class _HomeTabContentState extends State<HomeTabContent> {
             ],
           ),
           const SizedBox(height: 16),
-          if (_isLoadingActivity)
+          if (isLoading && displayActivities.isEmpty)
             const SizedBox(
               height: 100,
               child: Center(
@@ -579,7 +625,7 @@ class _HomeTabContentState extends State<HomeTabContent> {
                 ),
               ),
             )
-          else if (_activities.isEmpty)
+          else if (displayActivities.isEmpty)
             const Center(
               child: Padding(
                 padding: EdgeInsets.all(20),
@@ -593,13 +639,13 @@ class _HomeTabContentState extends State<HomeTabContent> {
               ),
             )
           else
-            ..._activities.asMap().entries.map((entry) {
+            ...displayActivities.asMap().entries.map((entry) {
               final index = entry.key;
               final activity = entry.value;
               return Column(
                 children: [
                   _buildActivityItem(activity),
-                  if (index < _activities.length - 1)
+                  if (index < displayActivities.length - 1)
                     Divider(color: AppTheme.lightRed, thickness: 1, height: 1),
                 ],
               );
@@ -640,7 +686,7 @@ class _HomeTabContentState extends State<HomeTabContent> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '${activity.date} • ${activity.time}',
+                  '${activity.date}${activity.time.isNotEmpty ? ' • ${activity.time}' : ''}',
                   style: TextStyle(
                     fontSize: 13,
                     color: AppTheme.unselected_tab_color,

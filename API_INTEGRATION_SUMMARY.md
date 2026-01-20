@@ -28,24 +28,12 @@
 
 ### What You Need to Do:
 
-#### 1. Update Base URLs (5 locations)
+#### 1. Base URL Configuration
 
-**Option A: Quick Fix** - Update each hardcoded URL:
-- `lib/main.dart` line 15: Change `'https://api.yourdomain.com'` to your API URL
-- `lib/screens/tabs/home_tab.dart` line 21: Change `'https://api.example.com'` to your API URL
-- `lib/screens/tabs/rewards_tab.dart` line 18: Change `'https://api.example.com'` to your API URL
-- `lib/screens/tabs/purchase_history_tab.dart` line 21: Change `'https://api.example.com'` to your API URL
-- `lib/screens/tabs/special_offers_tab.dart` line 21: Change `'https://api.example.com'` to your API URL
-- `lib/screens/tabs/barcode_tab.dart` line 17: Change `'https://api.example.com'` to your API URL
-
-**Option B: Better Approach** - Create a shared config:
-```dart
-// lib/utils/api_config.dart
-class ApiConfig {
-  static const String baseUrl = 'YOUR_ACTUAL_API_URL';
-}
-```
-Then use `ApiConfig.baseUrl` everywhere.
+- ✅ All screens now use `ApiConfig.baseUrl`
+- ✅ Config file: `lib/config/api_config.dart`
+- ✅ Current value: `https://gposdataservice.gpossystem.com/api/v1/`
+- To change environments, update `ApiConfig.baseUrl` once and the entire app will use the new URL.
 
 #### 2. Replace Mock API Calls
 

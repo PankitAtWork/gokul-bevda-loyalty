@@ -37,11 +37,7 @@ class _LoginOtpWidgetState extends State<LoginOtpWidget> {
       _showLocal('Enter valid phone or email');
       return;
     }
-    final ok = await auth.sendOtp(
-      identifier: id,
-      purpose: 'login',
-      ctx: context,
-    );
+    final ok = await auth.login(identifier: id, custOtp: true, ctx: context);
     if (ok) {
       ScaffoldMessenger.of(
         context,
@@ -55,15 +51,20 @@ class _LoginOtpWidgetState extends State<LoginOtpWidget> {
       _showLocal('Enter OTP');
       return;
     }
-    final ok = await auth.verifyOtp(otp: otp, ctx: context);
-    if (ok) {
-      if (auth.token != null && auth.token!.isNotEmpty) {
-        if (!mounted) return;
-        Navigator.pushReplacementNamed(context, '/home');
-      } else {
-        if (!mounted) return;
-        Navigator.pushReplacementNamed(context, '/home');
-      }
+
+    // Local verification
+    if (auth.receivedOtp == otp) {
+      // Correct OTP
+      //if (auth.token != null && auth.token!.isNotEmpty) {
+      if (!mounted) return;
+      Navigator.pushReplacementNamed(context, '/home');
+      //} else {
+      // Should have token if login succeeded, otherwise handle error or fallback
+      //  if (!mounted) return;
+      //  Navigator.pushReplacementNamed(context, '/home');
+      //}
+    } else {
+      _showLocal('Invalid OTP');
     }
   }
 
@@ -133,7 +134,10 @@ class _LoginOtpWidgetState extends State<LoginOtpWidget> {
           ),
           const SizedBox(height: 12),
 
-          if (auth.otpSent)
+          if (auth.receivedOtp != null &&
+              auth
+                  .receivedOtp!
+                  .isNotEmpty) // Check if OTP received instead of just sent flag
             Column(
               children: [
                 const SizedBox(height: 15),

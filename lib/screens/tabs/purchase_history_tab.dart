@@ -1,11 +1,13 @@
-// lib/screens/tabs/purchase_history_tab.dart
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
+import '../../providers/auth_provider.dart';
+import '../../models/transaction_history.dart';
 import '../../utils/theme.dart';
 import '../../utils/responsive.dart';
-import '../../models/purchase_history.dart';
-import '../../services/api_service.dart';
 
 class PurchaseHistoryTabContent extends StatefulWidget {
   const PurchaseHistoryTabContent({super.key});
@@ -17,14 +19,7 @@ class PurchaseHistoryTabContent extends StatefulWidget {
 
 class _PurchaseHistoryTabContentState extends State<PurchaseHistoryTabContent>
     with SingleTickerProviderStateMixin {
-  final ApiService _apiService = ApiService.create(
-    baseUrl: 'https://api.example.com',
-  );
-
   late TabController _tabController;
-  bool _isLoading = true;
-  String? _error;
-  PurchaseHistorySummary? _summary;
 
   @override
   void initState() {
@@ -33,7 +28,9 @@ class _PurchaseHistoryTabContentState extends State<PurchaseHistoryTabContent>
     _tabController.addListener(() {
       setState(() {});
     });
-    _loadPurchaseHistory();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadData();
+    });
   }
 
   @override
@@ -42,32 +39,17 @@ class _PurchaseHistoryTabContentState extends State<PurchaseHistoryTabContent>
     super.dispose();
   }
 
-  Future<void> _loadPurchaseHistory() async {
-    setState(() {
-      _isLoading = true;
-      _error = null;
-    });
-
-    try {
-      final summary = await _apiService.getPurchaseHistory();
-      if (mounted) {
-        setState(() {
-          _summary = summary;
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _error = e.toString();
-          _isLoading = false;
-        });
-      }
-    }
+  Future<void> _loadData() async {
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    await Future.wait([
+      auth.fetchDashboard(context),
+      auth.fetchTransactionHistory(context),
+    ]);
   }
 
   @override
   Widget build(BuildContext context) {
+    final auth = Provider.of<AuthProvider>(context);
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
         statusBarColor: AppTheme.primary,
@@ -76,13 +58,13 @@ class _PurchaseHistoryTabContentState extends State<PurchaseHistoryTabContent>
       ),
       child: Container(
         color: Colors.white,
-        child: SafeArea(child: _buildBody()),
+        child: SafeArea(child: _buildBody(auth)),
       ),
     );
   }
 
-  Widget _buildBody() {
-    if (_isLoading) {
+  Widget _buildBody(AuthProvider auth) {
+    if (auth.loadingTransactionHistory) {
       return const Center(
         child: CircularProgressIndicator(
           valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primary),
@@ -90,482 +72,428 @@ class _PurchaseHistoryTabContentState extends State<PurchaseHistoryTabContent>
       );
     }
 
-    if (_error != null) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.error_outline, size: 64, color: Colors.red),
-            const SizedBox(height: 16),
-            Text(
-              'Error',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey[800],
-                fontFamily: 'Roboto Flex',
-              ),
-            ),
-            const SizedBox(height: 8),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32),
-              child: Text(
-                _error!,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey[600],
-                  fontFamily: 'Roboto Flex',
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: _loadPurchaseHistory,
-              child: const Text('Retry'),
-            ),
-          ],
-        ),
-      );
-    }
+    final pointsBalance = auth.dashboardData?.customerPoints ?? 0;
 
-    if (_summary == null) {
-      return const Center(
-        child: Text(
-          'No data available',
-          style: TextStyle(
-            fontSize: 16,
-            color: Colors.grey,
-            fontFamily: 'Roboto Flex',
-          ),
-        ),
-      );
-    }
-
-    return Column(
-      children: [
-        // Stack for Banner with Title Bar on top
-        Stack(
-          children: [
-            // Points Balance Banner with SVG background
-            Container(
-              width: double.infinity,
-              height: 170,
-              child: Stack(
-                children: [
-                  // SVG Background
-                  Positioned.fill(
-                    child: SvgPicture.asset(
-                      'assets/images/reactangle_red.svg',
-                      fit: BoxFit.cover,
-                    ),
-                  ),
-                  // Points Balance Text
-                  Positioned(
-                    bottom: 10,
-                    left: 15,
-                    right: 15,
-                    child: Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            begin: Alignment.centerLeft,
-                            end: Alignment.centerRight,
-                            colors: [Color(0x40FFFFFF), Color(0x40FFFFFF)],
-                          ),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: Color(0xFFFFFFFF),
-                            width: .5,
-                          ),
+    return RefreshIndicator(
+      onRefresh: _loadData,
+      color: AppTheme.primary,
+      child: CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          // Sliver Header (Banner + Title Bar)
+          SliverToBoxAdapter(
+            child: Stack(
+              children: [
+                // Points Balance Banner
+                Container(
+                  width: double.infinity,
+                  height: 170,
+                  child: Stack(
+                    children: [
+                      Positioned.fill(
+                        child: SvgPicture.asset(
+                          'assets/images/reactangle_red.svg',
+                          fit: BoxFit.cover,
                         ),
-                        child: Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            onTap: () {
-                              // Handle redeem points
-                            },
-                            borderRadius: BorderRadius.circular(8),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 15,
+                      ),
+                      Positioned(
+                        bottom: 10,
+                        left: 15,
+                        right: 15,
+                        child: Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                begin: Alignment.centerLeft,
+                                end: Alignment.centerRight,
+                                colors: [Color(0x40FFFFFF), Color(0x40FFFFFF)],
                               ),
-                              child: Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    'Your Points Balance:',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600,
-                                      fontFamily: 'Roboto Flex',
-                                    ),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: const Color(0xFFFFFFFF),
+                                width: .5,
+                              ),
+                            ),
+                            child: Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                onTap: () {},
+                                borderRadius: BorderRadius.circular(8),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 15,
                                   ),
-                                  Text(
-                                    '${_summary!.pointsBalance} pts',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600,
-                                      fontFamily: 'Roboto Flex',
-                                    ),
+                                  child: Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      const Text(
+                                        'Your Points Balance:',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w600,
+                                          fontFamily: 'Roboto Flex',
+                                        ),
+                                      ),
+                                      Text(
+                                        '${pointsBalance} pts',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w600,
+                                          fontFamily: 'Roboto Flex',
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                ],
+                                ),
                               ),
                             ),
                           ),
                         ),
                       ),
+                    ],
+                  ),
+                ),
+                // Transparent Title Bar
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 2,
+                      vertical: 12,
+                    ),
+                    decoration: const BoxDecoration(color: Colors.transparent),
+                    child: Row(
+                      children: [
+                        IconButton(
+                          icon: const Icon(
+                            Icons.arrow_back,
+                            color: Colors.white,
+                          ),
+                          onPressed: () {},
+                        ),
+                        const Expanded(
+                          child: Text(
+                            'Purchase History',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              fontFamily: 'Roboto Flex',
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                        IconButton(
+                          icon: SvgPicture.asset(
+                            'assets/images/filter_copy.svg',
+                            width: 17,
+                            height: 17,
+                          ),
+                          onPressed: () => _showFilterPopup(context),
+                        ),
+                      ],
                     ),
                   ),
-                ],
-              ),
-            ),
-            // Transparent Title Bar on top
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 2,
-                  vertical: 12,
                 ),
-                decoration: const BoxDecoration(color: Colors.transparent),
-                child: Row(
+              ],
+            ),
+          ),
+          // Sticky Tab Bar
+          SliverPersistentHeader(
+            pinned: true,
+            delegate: _SliverAppBarDelegate(
+              child: Container(
+                color: const Color(0xFFCC0000),
+                child: Stack(
                   children: [
-                    // White Back Button
-                    IconButton(
-                      icon: const Icon(Icons.arrow_back, color: Colors.white),
-                      onPressed: () {
-                        // Navigate back if needed
-                      },
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Container(
+                            height: 50,
+                            decoration: BoxDecoration(
+                              color: _tabController.index == 0
+                                  ? Colors.white
+                                  : AppTheme.lightPink,
+                              borderRadius: const BorderRadius.only(
+                                topLeft: Radius.circular(30),
+                              ),
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: Container(
+                            height: 50,
+                            color: _tabController.index == 1
+                                ? Colors.white
+                                : const Color(0xFFFFF5F5),
+                          ),
+                        ),
+                        Expanded(
+                          child: Container(
+                            height: 50,
+                            decoration: BoxDecoration(
+                              color: _tabController.index == 2
+                                  ? Colors.white
+                                  : AppTheme.lightPink,
+                              borderRadius: const BorderRadius.only(
+                                topRight: Radius.circular(30),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                    // Center Title
-                    const Expanded(
-                      child: Text(
-                        'Purchase History',
-                        style: TextStyle(
+                    Container(
+                      height: 50,
+                      decoration: const BoxDecoration(
+                        color: Colors.transparent,
+                      ),
+                      child: TabBar(
+                        controller: _tabController,
+                        labelColor: AppTheme.primary,
+                        unselectedLabelColor: AppTheme.primary,
+                        indicator: BoxDecoration(
                           color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
+                          borderRadius: _tabController.index == 0
+                              ? const BorderRadius.only(
+                                  topLeft: Radius.circular(30),
+                                )
+                              : _tabController.index == 2
+                              ? const BorderRadius.only(
+                                  topRight: Radius.circular(30),
+                                )
+                              : null,
+                          border: const Border(
+                            bottom: BorderSide(
+                              color: AppTheme.primary,
+                              width: 1.5,
+                            ),
+                          ),
+                        ),
+                        indicatorSize: TabBarIndicatorSize.tab,
+                        dividerColor: Colors.transparent,
+                        labelStyle: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
                           fontFamily: 'Roboto Flex',
                         ),
-                        textAlign: TextAlign.center,
+                        unselectedLabelStyle: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          fontFamily: 'Roboto Flex',
+                        ),
+                        onTap: (index) {
+                          setState(() {});
+                        },
+                        tabs: const [
+                          Tab(text: 'All'),
+                          Tab(text: 'Earned'),
+                          Tab(text: 'Redeemed'),
+                        ],
                       ),
-                    ),
-                    // Filter Icon
-                    IconButton(
-                      icon: SvgPicture.asset(
-                        'assets/images/filter_copy.svg',
-                        width: 17,
-                        height: 17,
-                      ),
-                      onPressed: () => {_showFilterPopup(context)},
                     ),
                   ],
                 ),
               ),
             ),
-          ],
-        ),
+          ),
+          // Tab Content as List
+          if (_tabController.index == 0) ..._buildAllSliverList(auth),
+          if (_tabController.index == 1) ..._buildEarnedSliverList(auth),
+          if (_tabController.index == 2) ..._buildRedeemedSliverList(auth),
+        ],
+      ),
+    );
+  }
 
-        // Tabs
-        Container(
-          color: Color(0xFFCC0000),
-          child: Stack(
-            children: [
-              // Background containers with border radius for each tab
-              Row(
-                children: [
-                  // Left tab - left top radius
-                  Expanded(
-                    child: Container(
-                      height: 50,
-                      decoration: BoxDecoration(
-                        color: _tabController.index == 0
-                            ? Colors.white
-                            : AppTheme.lightPink,
-                        borderRadius: const BorderRadius.only(
-                          topLeft: Radius.circular(30),
-                        ),
-                      ),
-                    ),
-                  ),
-                  // Middle tab - no radius
-                  Expanded(
-                    child: Container(
-                      height: 50,
-                      color: _tabController.index == 1
-                          ? Colors.white
-                          : const Color(0xFFFFF5F5),
-                    ),
-                  ),
-                  // Right tab - right top radius
-                  Expanded(
-                    child: Container(
-                      height: 50,
-                      decoration: BoxDecoration(
-                        color: _tabController.index == 2
-                            ? Colors.white
-                            : AppTheme.lightPink,
-                        borderRadius: const BorderRadius.only(
-                          topRight: Radius.circular(30),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+  List<Widget> _buildAllSliverList(AuthProvider auth) {
+    final transactions = auth.transactionHistory;
+    return [
+      const SliverToBoxAdapter(
+        child: Padding(
+          padding: EdgeInsets.symmetric(vertical: 30),
+          child: Center(
+            child: Text(
+              'All Points Activity',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.primary,
+                fontFamily: 'Roboto Flex',
               ),
-              // TabBar on top
-              Container(
-                height: 50,
-                decoration: const BoxDecoration(color: Colors.transparent),
-                child: TabBar(
-                  controller: _tabController,
-                  labelColor: AppTheme.primary,
-                  unselectedLabelColor: AppTheme.primary,
-                  indicator: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: _tabController.index == 0
-                        ? const BorderRadius.only(topLeft: Radius.circular(30))
-                        : _tabController.index == 2
-                        ? const BorderRadius.only(topRight: Radius.circular(30))
-                        : null,
-                    border: const Border(
-                      bottom: BorderSide(color: AppTheme.primary, width: 1.5),
-                    ),
-                  ),
-                  indicatorSize: TabBarIndicatorSize.tab,
-                  dividerColor: Colors.transparent,
-                  labelStyle: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    fontFamily: 'Roboto Flex',
-                  ),
-                  unselectedLabelStyle: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    fontFamily: 'Roboto Flex',
-                  ),
-                  onTap: (index) {
-                    setState(() {});
-                  },
-                  tabs: const [
-                    Tab(text: 'All'),
-                    Tab(text: 'Earned'),
-                    Tab(text: 'Redeemed'),
-                  ],
+            ),
+          ),
+        ),
+      ),
+      SliverToBoxAdapter(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 50),
+          child: Row(
+            children: [
+              Expanded(
+                child: _buildSummaryBox(
+                  '+${auth.totalPointsEarned.toInt()}',
+                  'Points Earned',
+                  AppTheme.lightPink,
+                ),
+              ),
+              const SizedBox(width: 40),
+              Expanded(
+                child: _buildSummaryBox(
+                  '-${auth.totalPointsRedeemed.toInt()}',
+                  'Points Redeemed',
+                  AppTheme.lightPink,
                 ),
               ),
             ],
           ),
         ),
+      ),
+      const SliverToBoxAdapter(child: SizedBox(height: 16)),
+      SliverList(
+        delegate: SliverChildBuilderDelegate(
+          (context, index) => _buildTransactionItem(transactions[index]),
+          childCount: transactions.length,
+        ),
+      ),
+      const SliverToBoxAdapter(child: SizedBox(height: 16)),
+    ];
+  }
 
-        // Tab Content
-        Expanded(
-          child: TabBarView(
-            controller: _tabController,
-            children: [_buildAllTab(), _buildEarnedTab(), _buildRedeemedTab()],
+  List<Widget> _buildEarnedSliverList(AuthProvider auth) {
+    final transactions = auth.transactionHistory
+        .where((t) => t.collectedPoint > 0)
+        .toList();
+    return [
+      const SliverToBoxAdapter(
+        child: Padding(
+          padding: EdgeInsets.symmetric(vertical: 30),
+          child: Center(
+            child: Text(
+              'Points Earned',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.primary,
+                fontFamily: 'Roboto Flex',
+              ),
+            ),
           ),
         ),
-      ],
-    );
+      ),
+      SliverToBoxAdapter(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 50),
+          child: Row(
+            children: [
+              Expanded(
+                child: _buildSummaryBox(
+                  '+${auth.totalPointsEarned.toInt()}',
+                  'Points Earned',
+                  AppTheme.lightPink,
+                ),
+              ),
+              const SizedBox(width: 40),
+              Expanded(
+                child: _buildSummaryBox(
+                  '${transactions.length}',
+                  'Transactions',
+                  AppTheme.lightPink,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      const SliverToBoxAdapter(child: SizedBox(height: 16)),
+      if (transactions.isEmpty)
+        const SliverToBoxAdapter(
+          child: Padding(
+            padding: EdgeInsets.all(32),
+            child: Center(child: Text('No earned transactions')),
+          ),
+        )
+      else
+        SliverList(
+          delegate: SliverChildBuilderDelegate(
+            (context, index) => _buildTransactionItem(transactions[index]),
+            childCount: transactions.length,
+          ),
+        ),
+      const SliverToBoxAdapter(child: SizedBox(height: 16)),
+    ];
   }
 
-  Widget _buildAllTab() {
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Padding(
-            padding: EdgeInsets.only(top: 30, bottom: 30, left: 16, right: 16),
-            child: Center(
-              child: Text(
-                'All Points Activity',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.primary,
-                  fontFamily: 'Roboto Flex',
-                ),
+  List<Widget> _buildRedeemedSliverList(AuthProvider auth) {
+    final transactions = auth.transactionHistory
+        .where((t) => t.collectedPoint < 0)
+        .toList();
+    return [
+      const SliverToBoxAdapter(
+        child: Padding(
+          padding: EdgeInsets.symmetric(vertical: 30),
+          child: Center(
+            child: Text(
+              'Points Redeemed',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.primary,
+                fontFamily: 'Roboto Flex',
               ),
             ),
           ),
-          // Summary Boxes
-          Padding(
-            padding: const EdgeInsets.only(left: 50, right: 50),
-            child: Row(
-              children: [
-                Expanded(
-                  child: _buildSummaryBox(
-                    '+${_summary!.pointsEarned}',
-                    'Points Earned',
-                    AppTheme.lightPink,
-                  ),
-                ),
-                const SizedBox(width: 40),
-                Expanded(
-                  child: _buildSummaryBox(
-                    '-${_summary!.pointsRedeemed}',
-                    'Points Redeemed',
-                    AppTheme.lightPink,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          // Transaction List
-          ..._summary!.allTransactions.map(
-            (transaction) => _buildTransactionItem(transaction),
-          ),
-          const SizedBox(height: 16),
-        ],
+        ),
       ),
-    );
-  }
-
-  Widget _buildEarnedTab() {
-    final earnedTransactions = _summary!.earnedTransactions;
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Padding(
-            padding: EdgeInsets.only(top: 30, bottom: 30, left: 16, right: 16),
-            child: Center(
-              child: Text(
-                'Points Earned',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.primary,
-                  fontFamily: 'Roboto Flex',
+      SliverToBoxAdapter(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 50),
+          child: Row(
+            children: [
+              Expanded(
+                child: _buildSummaryBox(
+                  '-${auth.totalPointsRedeemed.toInt()}',
+                  'Points Redeemed',
+                  AppTheme.lightPink,
                 ),
               ),
-            ),
-          ),
-          // Summary Boxes
-          Padding(
-            padding: const EdgeInsets.only(left: 50, right: 50),
-            child: Row(
-              children: [
-                Expanded(
-                  child: _buildSummaryBox(
-                    '+${_summary!.pointsEarned}',
-                    'Points Earned',
-                    AppTheme.lightPink, // Light pink
-                  ),
-                ),
-                const SizedBox(width: 40),
-                Expanded(
-                  child: _buildSummaryBox(
-                    '${_summary!.earnedTransactionsCount}',
-                    'Transactions',
-                    AppTheme.lightPink,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          // Transaction List
-          if (earnedTransactions.isEmpty)
-            const Padding(
-              padding: EdgeInsets.all(32),
-              child: Center(
-                child: Text(
-                  'No earned transactions',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey,
-                    fontFamily: 'Roboto Flex',
-                  ),
+              const SizedBox(width: 40),
+              Expanded(
+                child: _buildSummaryBox(
+                  '${transactions.length}',
+                  'Rewards',
+                  AppTheme.lightPink,
                 ),
               ),
-            )
-          else
-            ...earnedTransactions.map(
-              (transaction) => _buildTransactionItem(transaction),
-            ),
-          const SizedBox(height: 16),
-        ],
+            ],
+          ),
+        ),
       ),
-    );
-  }
-
-  Widget _buildRedeemedTab() {
-    final redeemedTransactions = _summary!.redeemedTransactions;
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Padding(
-            padding: EdgeInsets.only(top: 30, bottom: 30, left: 16, right: 16),
-            child: Center(
-              child: Text(
-                'Points Redeemed',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.primary,
-                  fontFamily: 'Roboto Flex',
-                ),
-              ),
-            ),
+      const SliverToBoxAdapter(child: SizedBox(height: 16)),
+      if (transactions.isEmpty)
+        const SliverToBoxAdapter(
+          child: Padding(
+            padding: EdgeInsets.all(32),
+            child: Center(child: Text('No redeemed transactions')),
           ),
-          // Summary Boxes
-          Padding(
-            padding: const EdgeInsets.only(left: 50, right: 50),
-            child: Row(
-              children: [
-                Expanded(
-                  child: _buildSummaryBox(
-                    '-${_summary!.pointsRedeemed}',
-                    'Points Redeemed',
-                    AppTheme.lightPink, // Light pink
-                  ),
-                ),
-                const SizedBox(width: 40),
-                Expanded(
-                  child: _buildSummaryBox(
-                    '${_summary!.redeemedTransactionsCount}',
-                    'Rewards',
-                    AppTheme.lightPink,
-                  ),
-                ),
-              ],
-            ),
+        )
+      else
+        SliverList(
+          delegate: SliverChildBuilderDelegate(
+            (context, index) => _buildTransactionItem(transactions[index]),
+            childCount: transactions.length,
           ),
-          const SizedBox(height: 16),
-          // Transaction List
-          if (redeemedTransactions.isEmpty)
-            const Padding(
-              padding: EdgeInsets.all(32),
-              child: Center(
-                child: Text(
-                  'No redeemed transactions',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey,
-                    fontFamily: 'Roboto Flex',
-                  ),
-                ),
-              ),
-            )
-          else
-            ...redeemedTransactions.map(
-              (transaction) => _buildTransactionItem(transaction),
-            ),
-          const SizedBox(height: 16),
-        ],
-      ),
-    );
+        ),
+      const SliverToBoxAdapter(child: SizedBox(height: 16)),
+    ];
   }
 
   Widget _buildSummaryBox(String value, String label, Color backgroundColor) {
@@ -613,11 +541,23 @@ class _PurchaseHistoryTabContentState extends State<PurchaseHistoryTabContent>
     );
   }
 
-  Widget _buildTransactionItem(PurchaseHistory transaction) {
-    final isPurchase = transaction.type == 'purchase';
-    final iconAsset = isPurchase
+  Widget _buildTransactionItem(TransactionHistoryItem transaction) {
+    final isEarned = transaction.collectedPoint > 0;
+    final iconAsset = isEarned
         ? 'assets/images/bag.svg'
         : 'assets/images/prize.svg';
+    final title = isEarned
+        ? "Purchase at NO DATA FOUND"
+        : "Reward Redeemed: NO DATA FOUND";
+
+    // Formatting date: July 28, 2023 • 6:42 PM
+    String formattedDateTime = '';
+    try {
+      final dateTime = DateTime.parse(transaction.txnDate);
+      formattedDateTime = DateFormat('MMMM d, yyyy • h:mm a').format(dateTime);
+    } catch (e) {
+      formattedDateTime = transaction.txnDate;
+    }
 
     return Column(
       children: [
@@ -634,7 +574,7 @@ class _PurchaseHistoryTabContentState extends State<PurchaseHistoryTabContent>
                     // Background image
                     Positioned.fill(
                       child: SvgPicture.asset(
-                        isPurchase
+                        isEarned
                             ? 'assets/images/green_round.svg'
                             : 'assets/images/pink_round.svg',
                         fit: BoxFit.cover,
@@ -654,7 +594,7 @@ class _PurchaseHistoryTabContentState extends State<PurchaseHistoryTabContent>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      transaction.description,
+                      title,
                       style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
@@ -664,7 +604,7 @@ class _PurchaseHistoryTabContentState extends State<PurchaseHistoryTabContent>
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '${transaction.date} • ${transaction.time}',
+                      formattedDateTime,
                       style: TextStyle(
                         fontSize: 10,
                         color: AppTheme.unselected_tab_color,
@@ -677,13 +617,11 @@ class _PurchaseHistoryTabContentState extends State<PurchaseHistoryTabContent>
               ),
               // Points
               Text(
-                '${transaction.isPositive ? '+' : '-'}${transaction.points} pts',
+                '${isEarned ? '+' : ''}${transaction.collectedPoint.toInt()} pts',
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.bold,
-                  color: transaction.isPositive
-                      ? AppTheme.lightGreen
-                      : AppTheme.primary,
+                  color: isEarned ? AppTheme.lightGreen : AppTheme.primary,
                   fontFamily: 'Roboto Flex',
                 ),
               ),
@@ -971,7 +909,7 @@ class _PurchaseHistoryTabContentState extends State<PurchaseHistoryTabContent>
                   color: isSelected ? AppTheme.primary : AppTheme.lightPink,
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
-                    color: isSelected ? AppTheme.primary : AppTheme.lightPink!,
+                    color: isSelected ? AppTheme.primary : AppTheme.lightPink,
                     width: 1.5,
                   ),
                 ),
@@ -1026,5 +964,39 @@ class _PurchaseHistoryTabContentState extends State<PurchaseHistoryTabContent>
         ),
       ),
     );
+  }
+}
+
+class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
+  _SliverAppBarDelegate({
+    required this.child,
+    this.minHeight = 50.0,
+    this.maxHeight = 50.0,
+  });
+
+  final double minHeight;
+  final double maxHeight;
+  final Widget child;
+
+  @override
+  double get minExtent => minHeight;
+
+  @override
+  double get maxExtent => math.max(maxHeight, minHeight);
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    return SizedBox.expand(child: child);
+  }
+
+  @override
+  bool shouldRebuild(_SliverAppBarDelegate oldDelegate) {
+    return maxHeight != oldDelegate.maxHeight ||
+        minHeight != oldDelegate.minHeight ||
+        child != oldDelegate.child;
   }
 }

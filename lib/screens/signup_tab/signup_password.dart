@@ -29,18 +29,19 @@ class _SignupPasswordWidgetState extends State<SignupPasswordWidget> {
     super.dispose();
   }
 
-  Future<void> _createAccount(AuthProvider auth) async {
+  Future<void> _registerAccount(AuthProvider auth) async {
     if (!_formKey.currentState!.validate()) return;
     final identifier = widget.identifier ?? auth.currentIdentifier;
-    final name = widget.name ?? '';
+    final name = widget.name ?? auth.currentName ?? '';
     if (identifier == null) {
       _showLocal('Missing identifier. Please go back and enter details again.');
       return;
     }
-    final ok = await auth.createAccount(
-      identifier: identifier,
-      name: name,
+    // For demo, use identifier as both phone/email and phone
+    final ok = await auth.registerUser(
+      phoneOrEmail: identifier,
       password: _passCtrl.text.trim(),
+      name: name,
       ctx: context,
     );
     if (ok) {
@@ -155,7 +156,7 @@ class _SignupPasswordWidgetState extends State<SignupPasswordWidget> {
             PrimaryButton(
               text: 'Create Account',
               loading: creating,
-              onPressed: () => _createAccount(auth),
+              onPressed: () => _registerAccount(auth),
             ),
             const Spacer(),
             const TermsPrivacyText(),

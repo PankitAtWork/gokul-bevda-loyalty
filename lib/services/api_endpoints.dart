@@ -18,4 +18,6 @@ class ApiEndpoints {
 
   // Rewards/Redemption endpoints
   static const String generateRedemptionCode = '/rewards/generate-code';
+  static const String dashboard = '/dashboard';
+  static const String transactionHistory = '/GetCustomerTransactionHistory';
 }

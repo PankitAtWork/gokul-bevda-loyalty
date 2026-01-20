@@ -28,7 +28,7 @@ class _LoginPasswordWidgetState extends State<LoginPasswordWidget> {
 
   Future<void> _onLogin(AuthProvider auth) async {
     if (!_formKey.currentState!.validate()) return;
-    final ok = await auth.loginWithPassword(
+    final ok = await auth.login(
       identifier: _identifierController.text.trim(),
       password: _passwordController.text.trim(),
       ctx: context,
@@ -118,7 +118,10 @@ class _LoginPasswordWidgetState extends State<LoginPasswordWidget> {
                     style: BorderStyle.solid,
                   ),
                 ),
-
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: AppTheme.primary, width: 1),
+                ),
                 suffixIcon: Icon(
                   Icons.remove_red_eye,
                   color: Colors.grey.shade500,
