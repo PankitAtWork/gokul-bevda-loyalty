@@ -38,10 +38,17 @@ class _SignupPasswordWidgetState extends State<SignupPasswordWidget> {
       return;
     }
     // For demo, use identifier as both phone/email and phone
+    final otp = auth.signupOtp;
+    if (otp == null || otp.isEmpty) {
+      _showLocal('Missing OTP. Please go back and verify your phone/email.');
+      return;
+    }
+
     final ok = await auth.registerUser(
       phoneOrEmail: identifier,
       password: _passCtrl.text.trim(),
       name: name,
+      enteredOtp: otp,
       ctx: context,
     );
     if (ok) {
@@ -69,98 +76,101 @@ class _SignupPasswordWidgetState extends State<SignupPasswordWidget> {
     final auth = Provider.of<AuthProvider>(context);
     final creating = auth.uiBlocked && auth.flow == AuthFlow.creatingAccount;
 
-    return Padding(
-      padding: const EdgeInsets.all(26),
-      child: Form(
-        key: _formKey,
-        child: Column(
-          children: [
-            TextFormField(
-              controller: _passCtrl,
-              obscureText: true,
-              decoration: InputDecoration(
-                hintText: 'Create Password',
-                filled: true,
-                fillColor: AppTheme.bg,
+    return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
+      child: Padding(
+        padding: const EdgeInsets.all(26),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            children: [
+              TextFormField(
+                controller: _passCtrl,
+                obscureText: true,
+                decoration: InputDecoration(
+                  hintText: 'Create Password',
+                  filled: true,
+                  fillColor: AppTheme.bg,
 
-                hintStyle: TextStyle(
-                  color: AppTheme.unselected_tab_color,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  fontFamily: 'Roboto Flex',
-                ),
-                contentPadding: EdgeInsets.symmetric(
-                  vertical: 12,
-                  horizontal: 10,
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(
+                  hintStyle: TextStyle(
                     color: AppTheme.unselected_tab_color,
-                    width: 1,
-                    style: BorderStyle.solid,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    fontFamily: 'Roboto Flex',
+                  ),
+                  contentPadding: EdgeInsets.symmetric(
+                    vertical: 12,
+                    horizontal: 10,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: AppTheme.unselected_tab_color,
+                      width: 1,
+                      style: BorderStyle.solid,
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: AppTheme.primary, width: 1),
                   ),
                 ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: AppTheme.primary, width: 1),
-                ),
+                validator: (v) {
+                  final s = v ?? '';
+                  if (s.isEmpty) return 'Required';
+                  if (!Validators.validPassword(s))
+                    return 'Password must be at least 6 characters';
+                  return null;
+                },
               ),
-              validator: (v) {
-                final s = v ?? '';
-                if (s.isEmpty) return 'Required';
-                if (!Validators.validPassword(s))
-                  return 'Password must be at least 6 characters';
-                return null;
-              },
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _confirmCtrl,
-              obscureText: true,
-              decoration: InputDecoration(
-                hintText: 'Confirm Password',
-                filled: true,
-                fillColor: AppTheme.bg,
-                hintStyle: TextStyle(
-                  color: AppTheme.unselected_tab_color,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  fontFamily: 'Roboto Flex',
-                ),
-                contentPadding: EdgeInsets.symmetric(
-                  vertical: 12,
-                  horizontal: 10,
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _confirmCtrl,
+                obscureText: true,
+                decoration: InputDecoration(
+                  hintText: 'Confirm Password',
+                  filled: true,
+                  fillColor: AppTheme.bg,
+                  hintStyle: TextStyle(
                     color: AppTheme.unselected_tab_color,
-                    width: 1,
-                    style: BorderStyle.solid,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    fontFamily: 'Roboto Flex',
+                  ),
+                  contentPadding: EdgeInsets.symmetric(
+                    vertical: 12,
+                    horizontal: 10,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: AppTheme.unselected_tab_color,
+                      width: 1,
+                      style: BorderStyle.solid,
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: AppTheme.primary, width: 1),
                   ),
                 ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: AppTheme.primary, width: 1),
-                ),
+                validator: (v) {
+                  final s = v ?? '';
+                  if (s.isEmpty) return 'Required';
+                  if (s != _passCtrl.text) return 'Passwords do not match';
+                  return null;
+                },
               ),
-              validator: (v) {
-                final s = v ?? '';
-                if (s.isEmpty) return 'Required';
-                if (s != _passCtrl.text) return 'Passwords do not match';
-                return null;
-              },
-            ),
-            const SizedBox(height: 60),
-            PrimaryButton(
-              text: 'Create Account',
-              loading: creating,
-              onPressed: () => _registerAccount(auth),
-            ),
-            const Spacer(),
-            const TermsPrivacyText(),
-          ],
+              const SizedBox(height: 60),
+              PrimaryButton(
+                text: 'Create Account',
+                loading: creating,
+                onPressed: () => _registerAccount(auth),
+              ),
+              const SizedBox(height: 40),
+              const TermsPrivacyText(),
+            ],
+          ),
         ),
       ),
     );

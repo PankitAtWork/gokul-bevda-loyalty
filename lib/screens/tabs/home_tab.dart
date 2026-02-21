@@ -215,48 +215,39 @@ class _HomeTabContentState extends State<HomeTabContent> {
                     ),
                   ],
                 ),
-                if (data != null) ...[
-                  const SizedBox(height: 40),
-                  Center(
-                    child: IntrinsicWidth(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                'Complete ${data.totalMissions} missions to become Platinum member',
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(
-                                  color: Color(0xFFFFF3D1),
-                                  fontSize: 12,
-                                  fontFamily: 'Roboto Flex',
-                                ),
+                const SizedBox(height: 40),
+                //if (data != null) ...[
+                Center(
+                  child: IntrinsicWidth(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              data?.customerType ?? '',
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                color: Color(0xFFFFF3D1),
+                                fontSize: 12,
+                                fontFamily: 'Roboto Flex',
                               ),
-                              const SizedBox(width: 8),
-                              SvgPicture.asset(
-                                'assets/images/gray_badgee.svg',
-                                width: 20,
-                                height: 20,
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'You\'ve completed ${data.completedMissions} missions',
-                            textAlign: TextAlign.start,
-                            style: const TextStyle(
-                              color: Color(0xFFFFF3D1),
-                              fontSize: 10,
-                              fontFamily: 'Roboto Flex',
                             ),
-                          ),
-                        ],
-                      ),
+                            const SizedBox(width: 8),
+                            SvgPicture.asset(
+                              'assets/images/gray_badgee.svg',
+                              width: 20,
+                              height: 20,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                      ],
                     ),
                   ),
-                ],
+                ),
+                //],
               ],
             ),
           ),

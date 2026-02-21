@@ -1,8 +1,8 @@
 /// API endpoint constants
 class ApiEndpoints {
   static const String login = '/login';
-  static const String sendOtp = '/send-otp';
-  static const String verifyOtp = '/verify-otp';
+  static const String sendOtp = '/SendOtpSms';
+  static const String verifyOtp = '/Verifyotp';
   static const String createAccount = '/create-account';
 
   // Home screen endpoints

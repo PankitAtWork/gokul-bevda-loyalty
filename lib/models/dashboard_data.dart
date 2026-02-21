@@ -170,6 +170,7 @@ class DashboardData {
   final int customerPoints;
   final int completedMissions;
   final int totalMissions;
+  final String customerType;
 
   DashboardData({
     required this.offers,
@@ -177,6 +178,7 @@ class DashboardData {
     required this.customerPoints,
     required this.completedMissions,
     required this.totalMissions,
+    required this.customerType,
   });
 
   factory DashboardData.fromJson(Map<String, dynamic> json) {
@@ -197,6 +199,7 @@ class DashboardData {
       customerPoints: json['Custmoerpoints'] ?? 0,
       completedMissions: json['completed_missions'] ?? 0,
       totalMissions: json['total_missions'] ?? 0,
+      customerType: json['customerType']?.toString() ?? 'Platinum',
     );
   }
 }

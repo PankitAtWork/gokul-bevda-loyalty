@@ -68,25 +68,68 @@ class AuthService {
   }
 
   /// Send OTP for purpose: "login" or "signup"
+  ///
+  /// Headers:
+  /// - UserId: static
+  /// - Password: static
+  /// - PhoneNumber: phone number
+  /// - CountryCode: +91
+  /// - Cust_Otp: true
   Future<Response> sendOtp({
     required String identifier,
-    required String purpose,
+    required String purpose, // Not used in headers but maybe logic? Keeping it.
   }) async {
-    final data = {'identifier': identifier, 'purpose': purpose};
-    final resp = await api.dio.post(ApiEndpoints.sendOtp, data: data);
-    _logApiCall(ApiEndpoints.sendOtp, data, null, resp);
+    final headers = <String, dynamic>{
+      'UserId': 'i/jvNw56275GboRZu0XoNQ==', // Static
+      'Password': 'no4mXKgy2gnpvdDDjXG49A==', // Static
+      'PhoneNumber': identifier,
+      'CountryCode': '+91',
+      'Cust_Otp': true,
+    };
+
+    final data = {
+      'PhoneNumber': identifier,
+      'purpose': purpose, // Keeping purpose just in case
+      'CountryCode': '+91',
+    };
+
+    final resp = await api.dio.get(
+      ApiEndpoints.sendOtp,
+      queryParameters: data,
+      options: Options(headers: headers),
+    );
+    _logApiCall(ApiEndpoints.sendOtp, data, headers, resp);
     return resp;
   }
 
-  /// Verify OTP. Backend might return token on success for login.
+  /// Verify OTP.
+  ///
+  /// Headers:
+  /// - UserId: static
+  /// - Password: static
+  /// - X-OTP-Token: from sendOtp response
+  /// - Cust_UserId: phone number? (Usually required for context)
   Future<Response> verifyOtp({
     required String identifier,
     required String otp,
-    required String purpose,
+    required String token, // X-OTP-Token from sendOtp response
+    // "verifyotp's response will be same as login api"
   }) async {
-    final data = {'identifier': identifier, 'otp': otp, 'purpose': purpose};
-    final resp = await api.dio.post(ApiEndpoints.verifyOtp, data: data);
-    _logApiCall(ApiEndpoints.verifyOtp, data, null, resp);
+    final headers = <String, dynamic>{
+      'UserId': 'i/jvNw56275GboRZu0XoNQ==', // Static
+      'Password': 'no4mXKgy2gnpvdDDjXG49A==', // Static
+      'X-OTP-Token': token,
+      'OTP': otp,
+    };
+
+    final data = <String, dynamic>{};
+
+    final resp = await api.dio.get(
+      ApiEndpoints.verifyOtp,
+      queryParameters: data,
+      options: Options(headers: headers),
+    );
+    _logApiCall(ApiEndpoints.verifyOtp, data, headers, resp);
     return resp;
   }
 
@@ -109,7 +152,8 @@ class AuthService {
     required String name,
     required String email,
     required String phone,
-    bool otp = true,
+    required String token, // X-OTP-Token
+    required String enteredOtp, // User entered OTP
   }) async {
     final headers = <String, dynamic>{
       'UserId': 'i/jvNw56275GboRZu0XoNQ==', // Static
@@ -118,7 +162,9 @@ class AuthService {
       'Cust_Password': password, // User entered password
       'Email': email,
       'Phone': phone,
-      'Otp': otp,
+      'CountryCode': '+91',
+      'X-OTP-Token': token,
+      'OTP': enteredOtp,
     };
     final resp = await api.dio.get(
       'https://apistagging.gpossystem.com/api/v1/register',

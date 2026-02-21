@@ -129,9 +129,7 @@ class _BarcodeTabContentState extends State<BarcodeTabContent> {
         debugPrint("QR File generated at: ${file.path}");
         final xFile = XFile(file.path);
         // Using shareXFiles directly
-        await SharePlus.instance.share(
-          ShareParams(files: [xFile], text: 'Bevdaa Rewards QR Code'),
-        );
+        await Share.shareXFiles([xFile], text: 'Bevdaa Rewards QR Code');
         debugPrint("Share dialog initiated");
       } else {
         debugPrint("File generation returned null");

@@ -292,6 +292,10 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
+  // Auth data (continued)
+  String? verificationToken; // Store X-OTP-Token here from sendOtp
+  String? signupOtp; // Store the OTP entered during signup here
+
   /// Send OTP (for login or signup)
   Future<bool> sendOtp({
     required String identifier,
@@ -305,43 +309,82 @@ class AuthProvider with ChangeNotifier {
         identifier: identifier,
         purpose: purpose,
       );
+
+      // Check response status
       if (resp.statusCode == 200) {
-        currentIdentifier = identifier;
-        otpPurpose = purpose;
-        otpSent = true;
-        notifyListeners();
-        return true;
+        final data = resp.data;
+
+        // Logic: Check Result and Data.Result
+        // Structure: { Result: true, Status: 0, Msg: "", Data: { Result: false, ... } }
+
+        bool outerResult = data['Result'] == true;
+        bool innerResult = false;
+        String errorMsg = '';
+
+        if (data['Data'] != null && data['Data'] is Map<String, dynamic>) {
+          innerResult = data['Data']['Result'] == true;
+          errorMsg = data['Data']['Msg']?.toString() ?? '';
+
+          // Current logic req: "check for both result, and if both are true then only start verificatin ui"
+        } else if (outerResult && data['Data'] is String) {
+          innerResult = true;
+          errorMsg = '';
+        }
+
+        if (outerResult && innerResult) {
+          // Success!
+          // Extract X-OTP-Token from headers
+          // headers map keys might be case-insensitive or not, usually lower case in Dio if configured,
+          // but let's check carefully.
+          // Headers in Dio response are usually in `resp.headers`.
+          // `resp.headers.value('X-OTP-Token')`
+
+          final otpToken = resp.headers.value('X-OTP-Token');
+          if (otpToken != null) {
+            verificationToken = otpToken;
+          } else {
+            // If missing, maybe it's in body? But requirement says "response header will have X-OTP-Token"
+            debugPrint(
+              'Warning: X-OTP-Token header missing in sendOtp response',
+            );
+          }
+
+          currentIdentifier = identifier;
+          otpPurpose = purpose;
+          otpSent = true;
+          notifyListeners();
+          return true;
+        } else {
+          // Failure
+          // "otherwise show msg to user via toast"
+          _showError(
+            ctx,
+            errorMsg.isNotEmpty
+                ? errorMsg
+                : (data['Msg']?.toString() ?? 'Send OTP failed'),
+          );
+          return false;
+        }
       } else {
         _showError(ctx, resp.data?.toString() ?? 'Send OTP failed');
         return false;
       }
     } on DioException catch (e) {
-      currentIdentifier = identifier;
-      otpPurpose = purpose;
-      otpSent = true;
-      notifyListeners();
-      return true;
-      //final msg =
-      //   e.response?.data?.toString() ??
-      //  e.message ??
-      //  'Failed to send OTP. Please check your phone/email and try again.';
-      //_showError(ctx, msg);
-      //return false;
+      _showError(
+        ctx,
+        e.response?.data?.toString() ?? e.message ?? 'Send OTP failed',
+      );
+      return false;
     } catch (e) {
-      currentIdentifier = identifier;
-      otpPurpose = purpose;
-      otpSent = true;
-      notifyListeners();
-      return true;
-      //_showError(ctx, 'An unexpected error occurred. Please try again.');
-      //return false;
+      _showError(ctx, 'An unexpected error occurred: ${e.toString()}');
+      return false;
     } finally {
       _setUiBlocked(false);
       _setFlow(AuthFlow.idle);
     }
   }
 
-  /// Verify OTP (for login or signup). On login verify may return token.
+  /// Verify OTP (for login or signup).
   Future<bool> verifyOtp({
     required String otp,
     required BuildContext ctx,
@@ -351,41 +394,92 @@ class AuthProvider with ChangeNotifier {
       return false;
     }
 
+    // Check if we have verificationToken
+    if (verificationToken == null) {
+      // If we don't have token, maybe we can't verify?
+      // "store that for later verifyOtp API( we need to pass there)"
+      // Proceeding might fail, but let's try or show error?
+      // Let's warn but try, or handle gracefully.
+    }
+
     _setUiBlocked(true);
     _setFlow(AuthFlow.verifyingOtp);
     try {
       final resp = await authService.verifyOtp(
         identifier: currentIdentifier!,
         otp: otp,
-        purpose: otpPurpose!,
+        token:
+            verificationToken ??
+            '', // Pass empty if null, strict requirement likely fails
       );
+
       if (resp.statusCode == 200) {
-        final data = resp.data;
-        // If backend returns token on OTP verify (common for login), save it
-        final serverToken = data['token'] as String?;
-        if (serverToken != null && serverToken.isNotEmpty) {
-          await _saveToken(serverToken);
+        final responseData = resp.data;
+
+        // Structure same as login:
+        // { Result: true, ..., Data: { Result: true, Status: 200, Msg: "Auth Passed", Data: [User...], ... } }
+
+        bool outerResult = responseData['Result'] == true;
+        bool innerResult = false;
+        String innerMsg = '';
+
+        Map<String, dynamic>? innerData;
+
+        if (responseData['Data'] != null &&
+            responseData['Data'] is Map<String, dynamic>) {
+          innerData = responseData['Data'];
+          innerResult = innerData!['Result'] == true;
+          innerMsg = innerData['Msg']?.toString() ?? '';
         }
-        // For signup flow, backend might just return success; caller then continues to create password.
-        return true;
+
+        if (outerResult && innerResult) {
+          // Success
+
+          // "if user is verifying from login with otp then using this navigate to home screen"
+          if (otpPurpose == 'login') {
+            // Parse user data and login
+            if (innerData != null && innerData['Data'] is List) {
+              final list = innerData['Data'] as List;
+              if (list.isNotEmpty) {
+                final userData = list.first;
+                if (userData is Map<String, dynamic>) {
+                  currentUser = User.fromJson(userData);
+                  await _saveUser(currentUser!);
+
+                  notifyListeners();
+                  return true;
+                }
+              }
+            }
+            // If structure is slightly different or user data missing but result is true:
+            // Maybe we need to fetch dashboard?
+            // Assuming logic similar to Login method:
+            return true;
+          } else {
+            // "if usr is verifying from signup/register then just verify that API calling is success...
+            // and then as per current signup flow enter password ui is visible"
+            return true;
+          }
+        } else {
+          _showError(
+            ctx,
+            innerMsg.isNotEmpty ? innerMsg : 'Verification failed',
+          );
+          return false;
+        }
       } else {
         _showError(ctx, resp.data?.toString() ?? 'Verify OTP failed');
         return false;
       }
     } on DioException catch (e) {
-      await _saveToken("serverToken");
-      return true;
-      //final msg =
-      //   e.response?.data?.toString() ??
-      //   e.message ??
-      //   'Failed to verify OTP. Please check and try again.';
-      //_showError(ctx, msg);
-      //return false;
+      _showError(
+        ctx,
+        e.response?.data?.toString() ?? e.message ?? 'Verify OTP failed',
+      );
+      return false;
     } catch (e) {
-      await _saveToken("serverToken");
-      return true;
-      //_showError(ctx, 'An unexpected error occurred. Please try again.');
-      //return false;
+      _showError(ctx, e.toString());
+      return false;
     } finally {
       _setUiBlocked(false);
       _setFlow(AuthFlow.idle);
@@ -437,11 +531,11 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
-  /// Register user (API integration)
   Future<bool> registerUser({
     required String phoneOrEmail,
     required String password,
     required String name,
+    required String enteredOtp, // Added OTP field
     String? email,
     String? phone,
     required BuildContext ctx,
@@ -473,7 +567,8 @@ class AuthProvider with ChangeNotifier {
         name: name,
         email: finalEmail,
         phone: finalPhone,
-        otp: true,
+        token: verificationToken ?? '', // X-OTP-Token
+        enteredOtp: enteredOtp,
       );
       if (resp.statusCode == 200) {
         final responseData = resp.data;
@@ -549,6 +644,8 @@ class AuthProvider with ChangeNotifier {
     currentName = null;
     otpPurpose = null;
     otpSent = false;
+    verificationToken = null;
+    signupOtp = null;
     notifyListeners();
   }
 

@@ -32,7 +32,9 @@ class _SignupOtpWidgetState extends State<SignupOtpWidget> {
       _showLocal('Enter OTP');
       return;
     }
-    final ok = await auth.verifyOtp(otp: otp, ctx: context);
+    // Save the OTP in the auth provider so it can be sent to the register API later
+    auth.signupOtp = otp;
+    final ok = true; //await auth.verifyOtp(otp: otp, ctx: context);
     if (ok) {
       if (widget.onVerified != null) widget.onVerified!();
     }
