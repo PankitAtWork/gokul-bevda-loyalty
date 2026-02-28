@@ -490,7 +490,9 @@ class AuthProvider with ChangeNotifier {
         } else {
           _showError(
             ctx,
-            innerMsg.isNotEmpty ? innerMsg : 'Verification failed',
+            innerMsg.isNotEmpty
+                ? innerMsg
+                : (responseData['Msg']?.toString() ?? 'Verification failed'),
           );
           return false;
         }
