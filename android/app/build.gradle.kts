@@ -5,10 +5,24 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+val keystoreProperties = java.util.Properties()
+val keystorePropertiesFile = rootProject.file("keystore.properties")
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(java.io.FileInputStream(keystorePropertiesFile))
+}
 android {
     namespace = "com.example.bevdaa"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = "29.0.14206865"
+
+    signingConfigs {
+        getByName("debug") {
+            storeFile = keystoreProperties.getProperty("storeFile")?.let { file(it) }
+            storePassword = keystoreProperties.getProperty("storePassword")
+            keyAlias = keystoreProperties.getProperty("keyAlias")
+            keyPassword = keystoreProperties.getProperty("keyPassword")
+        }
+    }
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11

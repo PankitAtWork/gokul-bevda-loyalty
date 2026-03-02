@@ -1,0 +1,70 @@
+name: iOS TestFlight Release
+
+on:
+  workflow_dispatch:  # Manual trigger
+
+jobs:
+  release:
+    runs-on: macos-14
+    env:
+      FLUTTER_CHANNEL: stable
+      FLUTTER_VERSION: "3.35.7"
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 💎 Set up Ruby and Bundler
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: 3.2
+          bundler-cache: true
+
+      - name: Select Xcode 16
+        run: sudo xcode-select -switch /Applications/Xcode_16.1.0.app
+
+      - name: 🧪 Install Fastlane
+        run: |
+          cd ios
+          bundle install
+          
+      - name: Set up Zulu JDK 17
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'  # Use Zulu OpenJDK
+          java-version: '17'    # Or '11', '21', etc. based on your need
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: ${{ env.FLUTTER_CHANNEL }}
+          cache: true
+
+      - name: Update CocoaPods Specs Repo
+        run: pod repo update
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build iOS
+        run: flutter build ios --no-codesign
+
+      - name: Using fastlane API Key JSON file (https://docs.fastlane.tools/app-store-connect-api/#using-fastlane-api-key-json-file)
+        uses: kitek/decode-base64-into-file-action@1.0
+        with:
+          encoded-value: ${{ secrets.APP_STORE_CONNECT_KEY_JSON }}
+          destination-file: ios/fastlane/ios_connect.json
+
+      - name: 🚀 Run Fastlane testflight lane
+        env:
+          APP_STORE_CONNECT_API_KEY_PATH: ~/private_keys/AuthKey.p8
+          APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_KEY_JSON }}
+          FASTLANE_APPLE_ID: ${{ secrets.FASTLANE_APPLE_ID }}
+          FASTLANE_APP_IDENTIFIER: ${{ secrets.FASTLANE_APP_IDENTIFIER }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+          CERT_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+          CERT_NAME: ${{ secrets.CERT_NAME }}
+        run: |
+          cd ios
+          bundle exec fastlane testflight --verbose

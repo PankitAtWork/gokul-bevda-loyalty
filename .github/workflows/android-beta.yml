@@ -1,0 +1,101 @@
+name: Android Build & Deploy
+
+on:
+  workflow_dispatch: # Manual trigger
+    inputs:
+      release_channel:
+        description: 'Release Track (e.g., beta, production)'
+        required: false
+        default: 'beta'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    env:
+          FLUTTER_CHANNEL: stable
+          FLUTTER_VERSION: "3.35.7"
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        
+      - name: 💎 Set up Ruby and Bundler
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: 3.2
+          bundler-cache: true
+
+      - name: 🧪 Install Fastlane
+        run: |
+          cd android
+          bundle install
+
+      - name: Set up Zulu JDK 17
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'  # Use Zulu OpenJDK
+          java-version: '17'    # Or '11', '21', etc. based on your need
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: ${{ env.FLUTTER_CHANNEL }}
+          cache: true
+
+      - name: Decode Keystore
+        run: |
+          echo "$ANDROID_KEYSTORE_FILE" | base64 --decode > ./android/app/keystore
+        shell: bash
+        env:
+          ANDROID_KEYSTORE_FILE: ${{ secrets.ANDROID_KEYSTORE_FILE }}
+
+      - name: Configure Keystore
+        run: |
+          echo "storeFile=keystore" >> ./android/keystore.properties
+          echo "keyAlias=$KEYSTORE_KEY_ALIAS" >> ./android/keystore.properties
+          echo "storePassword=$KEYSTORE_STORE_PASSWORD" >> ./android/keystore.properties
+          echo "keyPassword=$KEYSTORE_STORE_PASSWORD" >> ./android/keystore.properties
+        env:
+          ANDROID_KEYSTORE_FILE: ${{ secrets.ANDROID_KEYSTORE_FILE }}
+          KEYSTORE_KEY_ALIAS: ${{ secrets.KEYSTORE_KEY_ALIAS }}
+          KEYSTORE_KEY_PASSWORD: ${{ secrets.KEYSTORE_STORE_PASSWORD }}
+          KEYSTORE_STORE_PASSWORD: ${{ secrets.KEYSTORE_STORE_PASSWORD }}
+      - name: Print Length of Keystore Secret (For Debugging Only)
+        run: |
+          echo "Length of base64 string: ${#PLAY_CONFIG_JSON}"
+        env:
+          PLAY_CONFIG_JSON: ${{ secrets.PLAY_CONFIG_JSON }}
+
+      - name: Check Keystore File
+        run: |
+          ls -lh android/app/keystore
+          file android/app/keystore
+          du -h android/app/keystore
+
+      - name: Verify Keystore
+        run: |
+          keytool -list -keystore ./android/app/keystore -storepass $KEYSTORE_STORE_PASSWORD
+        env:
+          KEYSTORE_STORE_PASSWORD: ${{ secrets.KEYSTORE_STORE_PASSWORD }}
+      
+      - name: Restore play_config.json file
+        uses: kitek/decode-base64-into-file-action@1.0
+        with:
+          encoded-value: ${{ secrets.PLAY_CONFIG_JSON }}
+          destination-file: android/play_config.json
+      
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build Android AAB
+        run: flutter build appbundle
+        
+      # - name: 🚀 Run Fastlane android_beta lane
+      #   run: |
+      #     bundle exec fastlane run validate_play_store_json_key json_key:./play_config.json
+      - name: 🚀 Run Fastlane android_beta lane
+        run: |
+          cd android
+          bundle exec fastlane android_beta --verbose

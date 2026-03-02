@@ -1,0 +1,95 @@
+# This file contains the fastlane.tools configuration
+# You can find the documentation at https://docs.fastlane.tools
+#
+# For a list of all available actions, check out
+#
+#     https://docs.fastlane.tools/actions
+#
+# For a list of all available plugins, check out
+#
+#     https://docs.fastlane.tools/plugins/available-plugins
+#
+
+# Uncomment the line if you want fastlane to automatically update itself
+# update_fastlane
+
+default_platform(:ios)
+
+platform :ios do
+  desc "Description of what the lane does"
+  lane :testflight do
+    # add actions here: https://docs.fastlane.tools/actions
+    # api_key = app_store_connect_api_key(key_id: "9QA9HXCA6R",
+    #   issuer_id: "f5060bff-40dc-447d-b618-ed9967a7d143",
+    #   key_content: ENV["APP_STORE_CONNECT_API_KEY_CONTENT"],
+    #   duration: 1200, # optional (maximum 1200)
+    #   in_house: false, # optional but may be required if using match/sigh
+    #   is_key_content_base64: true
+    # )
+    keychain_name = "ios-build"
+    keychain_password = ENV["KEYCHAIN_PASSWORD"]
+    app_identifier = ENV["FASTLANE_APP_IDENTIFIER"]
+    profile_name = "Bevda_loyalty_Dis_github"
+    certificate_name = ENV["CERT_NAME"]
+
+    delete_keychain(
+      name: keychain_name
+    )   if File.exist? File.expand_path("~/Library/Keychains/#{keychain_name}-db")
+
+    create_keychain(
+      name: keychain_name,
+      password: keychain_password,
+      default_keychain: true,
+      unlock: true,
+      timeout: 3600
+    )
+
+    # pilot(api_key: api_key)
+    import_certificate(
+      certificate_path: "./certs/ios_distribution.p12",
+      certificate_password: keychain_password,
+      keychain_password: keychain_password,
+      keychain_name: keychain_name,
+    )
+
+    # 2. Download the provisioning profile for App Store
+    sigh(
+      app_identifier: app_identifier,
+      provisioning_name: profile_name,
+      output_path: "./fastlane/profiles",
+      username: ENV["FASTLANE_APPLE_ID"],
+      api_key_path:"./fastlane/ios_connect.json"
+
+    )
+    # turn off automatic signing during build so correct code signing identity is guaranteed to be used
+    update_code_signing_settings(
+      use_automatic_signing: false,
+      targets: ["Runner"], # specify which targets to update code signing settings for
+      code_sign_identity: certificate_name, # replace with name of code signing identity if different
+      bundle_identifier: app_identifier,
+      profile_name: profile_name,
+      build_configurations: ["Release"] # only toggle code signing settings for Release configurations
+    )
+
+    # sync_code_signing(type: "appstore",api_key_path:"./fastlane/9QA9HXCA6R.json")    # see code signing guide for more information
+    # increment_build_number
+    build_app(scheme: "Runner", export_method: "app-store", workspace: "Runner.xcworkspace", export_options: {
+        provisioningProfiles: {
+          app_identifier => profile_name
+        },
+        signingStyle: "manual",
+        signingCertificate: certificate_name
+      })
+    upload_to_testflight(api_key_path:"./fastlane/ios_connect.json")
+  end
+  # error block is executed when a error occurs
+  error do |lane, exception|
+    slack(
+      # message with short human friendly message
+      message: exception.to_s,
+      success: false,
+      # Output containing extended log output
+      payload: { "Output" => exception.error_info.to_s }
+    )
+  end
+end
