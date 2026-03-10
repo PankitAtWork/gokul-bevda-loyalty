@@ -1,6 +1,8 @@
 // lib/screens/auth_screen.dart
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../utils/theme.dart';
 import '../../providers/auth_provider.dart';
 import '../../screens/login_tab/login_with_pass.dart';
@@ -24,8 +26,77 @@ class _AuthScreenState extends State<AuthScreen>
 
   @override
   void initState() {
-    _tabController = TabController(length: 2, vsync: this);
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkAgeVerification();
+    });
+  }
+
+  Future<void> _checkAgeVerification() async {
+    final prefs = await SharedPreferences.getInstance();
+    final isVerified = prefs.getBool('isAgeVerified') ?? false;
+    if (!isVerified) {
+      if (mounted) {
+        _showAgeVerificationDialog();
+      }
+    }
+  }
+
+  void _showAgeVerificationDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return PopScope(
+          canPop: false,
+          child: AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: const Text(
+              'Age Verification',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            content: const Text(
+              'You must be 21 years or older to use this app and purchase alcohol.\n\n'
+              'By continuing, you confirm that you are at least 21 years old and legally allowed to consume alcohol in your region.',
+              style: TextStyle(fontSize: 16),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  SystemNavigator.pop();
+                },
+                child: const Text(
+                  'Exit',
+                  style: TextStyle(color: Colors.red, fontSize: 16),
+                ),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primary,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                onPressed: () async {
+                  final prefs = await SharedPreferences.getInstance();
+                  await prefs.setBool('isAgeVerified', true);
+                  if (mounted) {
+                    Navigator.of(context).pop();
+                  }
+                },
+                child: const Text(
+                  'Yes, I am 21+',
+                  style: TextStyle(color: Colors.white, fontSize: 16),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   @override
