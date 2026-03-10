@@ -137,6 +137,7 @@ class AuthProvider with ChangeNotifier {
     required String identifier,
     String? password,
     bool custOtp = false,
+    String? countryCode,
     required BuildContext ctx,
   }) async {
     _setUiBlocked(true);
@@ -148,6 +149,7 @@ class AuthProvider with ChangeNotifier {
         identifier: identifier,
         password: password,
         custOtp: custOtp,
+        countryCode: countryCode,
       );
       // Handle nested API response structure
       if (resp.statusCode == 200) {
@@ -300,6 +302,7 @@ class AuthProvider with ChangeNotifier {
   Future<bool> sendOtp({
     required String identifier,
     required String purpose, // "login" or "signup"
+    String? countryCode,
     required BuildContext ctx,
   }) async {
     _setUiBlocked(true);
@@ -308,6 +311,7 @@ class AuthProvider with ChangeNotifier {
       final resp = await authService.sendOtp(
         identifier: identifier,
         purpose: purpose,
+        countryCode: countryCode,
       );
 
       // Check response status
@@ -567,6 +571,7 @@ class AuthProvider with ChangeNotifier {
     required String enteredOtp, // Added OTP field
     String? email,
     String? phone,
+    String? countryCode,
     required BuildContext ctx,
   }) async {
     _setUiBlocked(true);
@@ -598,6 +603,7 @@ class AuthProvider with ChangeNotifier {
         phone: finalPhone,
         token: verificationToken ?? '', // X-OTP-Token
         enteredOtp: enteredOtp,
+        countryCode: countryCode,
       );
       if (resp.statusCode == 200) {
         final responseData = resp.data;
@@ -709,6 +715,86 @@ class AuthProvider with ChangeNotifier {
     verificationToken = null;
     signupOtp = null;
     notifyListeners();
+  }
+
+  /// Delete Account
+  Future<bool> deleteAccount(BuildContext ctx) async {
+    if (currentUser == null || currentUser!.customerId == null) {
+      _showError(ctx, 'Customer information not found. Cannot delete account.');
+      return false;
+    }
+
+    _setUiBlocked(true);
+    notifyListeners();
+
+    try {
+      final resp = await authService.deleteAccount(
+        customerId: currentUser!.customerId!,
+      );
+
+      if (resp.statusCode == 200) {
+        var responseData = resp.data;
+
+        // Handle case where response is returned as a plain string
+        if (responseData is String) {
+          try {
+            responseData = jsonDecode(responseData);
+          } catch (e) {
+            print("Failed to decode response: $e");
+          }
+        }
+
+        if (responseData is Map<String, dynamic>) {
+          final result = responseData['Result'];
+          final msg = responseData['Msg']?.toString() ?? '';
+
+          bool isSuccess = false;
+          if (result is bool) {
+            isSuccess = result;
+          } else if (result != null) {
+            isSuccess = result.toString().toLowerCase() == 'true';
+          }
+
+          if (isSuccess) {
+            // Delete success. Show message and log out.
+            if (ctx.mounted) {
+              ScaffoldMessenger.of(ctx).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    msg.isNotEmpty ? msg : 'Account deleted successfully',
+                  ),
+                ),
+              );
+            }
+            await clearAuth();
+            return true;
+          } else {
+            // Delete failed based on logical Result
+            _showError(ctx, msg.isNotEmpty ? msg : 'Failed to delete account.');
+            return false;
+          }
+        } else {
+          _showError(ctx, 'Unexpected response format.');
+          return false;
+        }
+      } else {
+        _showError(ctx, resp.data?.toString() ?? 'Failed to delete account.');
+        return false;
+      }
+    } on DioException catch (e) {
+      final msg =
+          e.response?.data?.toString() ??
+          e.message ??
+          'Failed to delete account.';
+      _showError(ctx, msg);
+      return false;
+    } catch (e) {
+      _showError(ctx, e.toString());
+      return false;
+    } finally {
+      _setUiBlocked(false);
+      notifyListeners();
+    }
   }
 
   /// Fetch dashboard data
