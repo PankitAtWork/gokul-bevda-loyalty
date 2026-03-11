@@ -4,7 +4,7 @@ class ApiEndpoints {
   static const String sendOtp = '/SendOtpSms';
   static const String verifyOtp = '/Verifyotp';
   static const String createAccount = '/create-account';
-
+  static const String deleteAccount = '/DeleteCustomer';
   // Home screen endpoints
   static const String getUserPoints = '/user/points';
   static const String getSpecialOffers = '/special-offers';

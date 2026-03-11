@@ -43,6 +43,7 @@ class AuthService {
     required String identifier,
     String? password,
     bool custOtp = false,
+    String? countryCode,
   }) async {
     final headers = <String, dynamic>{
       'UserId':
@@ -53,6 +54,7 @@ class AuthService {
       // Current code has static Password header. Leaving it as is unless specified.
       'Password': 'no4mXKgy2gnpvdDDjXG49A==',
       'Cust_UserId': identifier,
+      if (countryCode != null) 'CountryCode': countryCode,
       'Cust_Password': custOtp ? '' : (password ?? ''),
       'Cust_Otp': custOtp,
     };
@@ -78,19 +80,20 @@ class AuthService {
   Future<Response> sendOtp({
     required String identifier,
     required String purpose, // Not used in headers but maybe logic? Keeping it.
+    String? countryCode,
   }) async {
     final headers = <String, dynamic>{
       'UserId': 'i/jvNw56275GboRZu0XoNQ==', // Static
       'Password': 'no4mXKgy2gnpvdDDjXG49A==', // Static
       'PhoneNumber': identifier,
-      'CountryCode': '+91',
+      'CountryCode': countryCode ?? '+1',
       'Cust_Otp': true,
     };
 
     final data = {
       'PhoneNumber': identifier,
       'purpose': purpose, // Keeping purpose just in case
-      'CountryCode': '+91',
+      'CountryCode': countryCode ?? '+1',
     };
 
     final resp = await api.dio.get(
@@ -155,6 +158,7 @@ class AuthService {
     required String phone,
     required String token, // X-OTP-Token
     required String enteredOtp, // User entered OTP
+    String? countryCode,
   }) async {
     final headers = <String, dynamic>{
       'UserId': 'i/jvNw56275GboRZu0XoNQ==', // Static
@@ -163,7 +167,7 @@ class AuthService {
       'Cust_Password': password, // User entered password
       'Email': email,
       'Phone': phone,
-      'CountryCode': '+91',
+      'CountryCode': countryCode ?? '+1',
       'X-OTP-Token': token,
       'OTP': enteredOtp,
     };
@@ -207,6 +211,21 @@ class AuthService {
       options: Options(headers: headers),
     );
     _logApiCall(ApiEndpoints.transactionHistory, null, headers, resp);
+    return resp;
+  }
+
+  /// Delete Account
+  Future<Response> deleteAccount({required int customerId}) async {
+    final headers = <String, dynamic>{
+      'UserId': 'i/jvNw56275GboRZu0XoNQ==', // Static
+      'Password': 'no4mXKgy2gnpvdDDjXG49A==', // Static
+      'CustomerId': customerId,
+    };
+    final resp = await api.dio.post(
+      ApiEndpoints.deleteAccount,
+      options: Options(headers: headers),
+    );
+    _logApiCall(ApiEndpoints.deleteAccount, null, headers, resp);
     return resp;
   }
 }

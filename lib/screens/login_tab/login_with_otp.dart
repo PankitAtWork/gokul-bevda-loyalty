@@ -20,6 +20,36 @@ class _LoginOtpWidgetState extends State<LoginOtpWidget> {
   final TextEditingController _identifierCtrl = TextEditingController();
   final TextEditingController _otpCtrl = TextEditingController();
 
+  bool _isPhoneInput = false;
+  String _selectedCountryCode = '+1';
+
+  @override
+  void initState() {
+    super.initState();
+    _identifierCtrl.addListener(_checkInputType);
+  }
+
+  void _checkInputType() {
+    final text = _identifierCtrl.text.trim();
+    if (text.isNotEmpty) {
+      // Check if the first character is a digit or a plus sign
+      final firstChar = text[0];
+      final isPhone = RegExp(r'[0-9+]').hasMatch(firstChar);
+
+      if (_isPhoneInput != isPhone) {
+        setState(() {
+          _isPhoneInput = isPhone;
+        });
+      }
+    } else {
+      if (_isPhoneInput != false) {
+        setState(() {
+          _isPhoneInput = false;
+        });
+      }
+    }
+  }
+
   @override
   void dispose() {
     _identifierCtrl.dispose();
@@ -41,6 +71,7 @@ class _LoginOtpWidgetState extends State<LoginOtpWidget> {
     final ok = await auth.sendOtp(
       identifier: id,
       purpose: 'login',
+      countryCode: _isPhoneInput ? _selectedCountryCode : null,
       ctx: context,
     );
     if (ok) {
@@ -98,6 +129,49 @@ class _LoginOtpWidgetState extends State<LoginOtpWidget> {
               controller: _identifierCtrl,
               decoration: InputDecoration(
                 hintText: 'Phone or Email',
+                prefixIcon: _isPhoneInput
+                    ? Container(
+                        padding: const EdgeInsets.only(left: 12, right: 8),
+                        margin: const EdgeInsets.only(right: 8),
+                        decoration: BoxDecoration(
+                          border: Border(
+                            right: BorderSide(
+                              color: AppTheme.unselected_tab_color,
+                              width: 1,
+                            ),
+                          ),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: _selectedCountryCode,
+                            icon: const Icon(Icons.arrow_drop_down, size: 20),
+                            isDense: true,
+                            onChanged: (String? newValue) {
+                              if (newValue != null) {
+                                setState(() {
+                                  _selectedCountryCode = newValue;
+                                });
+                              }
+                            },
+                            items: <String>['+1', '+91']
+                                .map<DropdownMenuItem<String>>((String value) {
+                                  return DropdownMenuItem<String>(
+                                    value: value,
+                                    child: Text(
+                                      value,
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w500,
+                                        fontFamily: 'Roboto Flex',
+                                      ),
+                                    ),
+                                  );
+                                })
+                                .toList(),
+                          ),
+                        ),
+                      )
+                    : null,
                 hintStyle: TextStyle(
                   color: AppTheme.unselected_tab_color,
                   fontSize: 14,

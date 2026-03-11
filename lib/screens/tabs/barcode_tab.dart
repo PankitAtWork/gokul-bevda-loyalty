@@ -262,6 +262,53 @@ class _BarcodeTabContentState extends State<BarcodeTabContent> {
     );
   }
 
+  Future<void> _deleteAccount() async {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text(
+          'Delete Account',
+          style: TextStyle(color: Colors.red),
+        ),
+        content: const Text(
+          'Are you sure you want to delete your account? This action cannot be undone and all your data will be permanently removed.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel', style: TextStyle(color: Colors.black)),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(ctx); // Close dialog
+              final messenger = ScaffoldMessenger.of(context);
+              final authProvider = Provider.of<AuthProvider>(
+                context,
+                listen: false,
+              );
+              final success = await authProvider.deleteAccount(context);
+
+              if (success && mounted) {
+                // Return to login screen
+                Navigator.of(
+                  context,
+                ).pushNamedAndRemoveUntil('/auth', (route) => false);
+                // Show snackbar after navigation starts so it appears on the new route
+                messenger.showSnackBar(
+                  const SnackBar(content: Text('Account deleted successfully')),
+                );
+              }
+            },
+            child: const Text(
+              'Delete',
+              style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
@@ -585,6 +632,35 @@ class _BarcodeTabContentState extends State<BarcodeTabContent> {
                     fontWeight: FontWeight.bold,
                     fontFamily: 'Roboto Flex',
                     color: Colors.red,
+                  ),
+                ),
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(25),
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 12),
+
+          // Delete Account Button
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 0),
+            child: SizedBox(
+              width: double.infinity,
+              child: TextButton.icon(
+                onPressed: _deleteAccount,
+                icon: const Icon(Icons.delete_forever, color: Colors.grey),
+                label: const Text(
+                  'Delete Account',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    fontFamily: 'Roboto Flex',
+                    color: Colors.grey,
                   ),
                 ),
                 style: TextButton.styleFrom(
