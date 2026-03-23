@@ -24,36 +24,6 @@ class _SignupDetailWidgetState extends State<SignupDetailWidget> {
 
   String _selectedCountryCode = '+1';
 
-  bool _isPhoneInput = false;
-  String _selectedCountryCode = '+1';
-
-  @override
-  void initState() {
-    super.initState();
-    _identifierCtrl.addListener(_checkInputType);
-  }
-
-  void _checkInputType() {
-    final text = _identifierCtrl.text.trim();
-    if (text.isNotEmpty) {
-      // Check if the first character is a digit or a plus sign
-      final firstChar = text[0];
-      final isPhone = RegExp(r'[0-9+]').hasMatch(firstChar);
-
-      if (_isPhoneInput != isPhone) {
-        setState(() {
-          _isPhoneInput = isPhone;
-        });
-      }
-    } else {
-      if (_isPhoneInput != false) {
-        setState(() {
-          _isPhoneInput = false;
-        });
-      }
-    }
-  }
-
   @override
   void dispose() {
     _nameCtrl.dispose();

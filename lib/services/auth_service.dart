@@ -82,16 +82,18 @@ class AuthService {
     required String purpose, // Not used in headers but maybe logic? Keeping it.
     String? countryCode,
   }) async {
+    final isEmail = identifier.contains('@');
+    
     final headers = <String, dynamic>{
       'UserId': 'i/jvNw56275GboRZu0XoNQ==', // Static
       'Password': 'no4mXKgy2gnpvdDDjXG49A==', // Static
-      'PhoneNumber': identifier,
+      if (isEmail) 'Email': identifier else 'PhoneNumber': identifier,
       'CountryCode': countryCode ?? '+1',
       'Cust_Otp': true,
     };
 
     final data = {
-      'PhoneNumber': identifier,
+      if (isEmail) 'Email': identifier else 'PhoneNumber': identifier,
       'purpose': purpose, // Keeping purpose just in case
       'CountryCode': countryCode ?? '+1',
     };
@@ -118,12 +120,14 @@ class AuthService {
     required String token, // X-OTP-Token from sendOtp response
     // "verifyotp's response will be same as login api"
   }) async {
+    final isEmail = identifier.contains('@');
+    
     final headers = <String, dynamic>{
       'UserId': 'i/jvNw56275GboRZu0XoNQ==', // Static
       'Password': 'no4mXKgy2gnpvdDDjXG49A==', // Static
       'X-OTP-Token': token,
       'OTP': otp,
-      'Phone': identifier,
+      if (isEmail) 'Email': identifier else 'Phone': identifier,
     };
 
     final data = <String, dynamic>{};
@@ -240,7 +244,7 @@ class AuthService {
       'CustId': customerId.toString(),
       'Cust_Password': newPassword,
     };
-    final resp = await api.dio.post(
+    final resp = await api.dio.get(
       ApiEndpoints.changePassword,
       options: Options(headers: headers),
     );
