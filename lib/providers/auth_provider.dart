@@ -32,6 +32,8 @@ class AuthProvider with ChangeNotifier {
   String? token;
   User? currentUser;
   String? currentIdentifier; // phone/email being processed
+  String? currentEmail;
+  String? currentPhone;
   String? currentName; // user name being processed
   String? otpPurpose; // "login" or "signup"
   bool otpSent = false;
@@ -727,6 +729,8 @@ class AuthProvider with ChangeNotifier {
     token = null;
     currentUser = null;
     currentIdentifier = null;
+    currentEmail = null;
+    currentPhone = null;
     currentName = null;
     otpPurpose = null;
     otpSent = false;

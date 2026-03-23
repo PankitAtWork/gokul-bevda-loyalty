@@ -21,6 +21,8 @@ class _SignupPasswordWidgetState extends State<SignupPasswordWidget> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _passCtrl = TextEditingController();
   final TextEditingController _confirmCtrl = TextEditingController();
+  bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
 
   @override
   void dispose() {
@@ -31,10 +33,12 @@ class _SignupPasswordWidgetState extends State<SignupPasswordWidget> {
 
   Future<void> _registerAccount(AuthProvider auth) async {
     if (!_formKey.currentState!.validate()) return;
-    final identifier = widget.identifier ?? auth.currentIdentifier;
+    final phone = auth.currentPhone;
+    final email = auth.currentEmail;
     final name = widget.name ?? auth.currentName ?? '';
-    if (identifier == null) {
-      _showLocal('Missing identifier. Please go back and enter details again.');
+    
+    if (phone == null || phone.isEmpty || email == null || email.isEmpty) {
+      _showLocal('Missing details. Please go back and enter details again.');
       return;
     }
     // For demo, use identifier as both phone/email and phone
@@ -45,7 +49,9 @@ class _SignupPasswordWidgetState extends State<SignupPasswordWidget> {
     }
 
     final ok = await auth.registerUser(
-      phoneOrEmail: identifier,
+      phoneOrEmail: phone,
+      email: email,
+      phone: phone,
       password: _passCtrl.text.trim(),
       name: name,
       enteredOtp: otp,
@@ -86,12 +92,11 @@ class _SignupPasswordWidgetState extends State<SignupPasswordWidget> {
             children: [
               TextFormField(
                 controller: _passCtrl,
-                obscureText: true,
+                obscureText: _obscurePassword,
                 decoration: InputDecoration(
                   hintText: 'Create Password',
                   filled: true,
                   fillColor: AppTheme.bg,
-
                   hintStyle: TextStyle(
                     color: AppTheme.unselected_tab_color,
                     fontSize: 14,
@@ -114,6 +119,17 @@ class _SignupPasswordWidgetState extends State<SignupPasswordWidget> {
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide(color: AppTheme.primary, width: 1),
                   ),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                      color: Colors.grey.shade500,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _obscurePassword = !_obscurePassword;
+                      });
+                    },
+                  ),
                 ),
                 validator: (v) {
                   final s = v ?? '';
@@ -126,7 +142,7 @@ class _SignupPasswordWidgetState extends State<SignupPasswordWidget> {
               const SizedBox(height: 12),
               TextFormField(
                 controller: _confirmCtrl,
-                obscureText: true,
+                obscureText: _obscureConfirmPassword,
                 decoration: InputDecoration(
                   hintText: 'Confirm Password',
                   filled: true,
@@ -152,6 +168,17 @@ class _SignupPasswordWidgetState extends State<SignupPasswordWidget> {
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide(color: AppTheme.primary, width: 1),
+                  ),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscureConfirmPassword ? Icons.visibility_off : Icons.visibility,
+                      color: Colors.grey.shade500,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _obscureConfirmPassword = !_obscureConfirmPassword;
+                      });
+                    },
                   ),
                 ),
                 validator: (v) {

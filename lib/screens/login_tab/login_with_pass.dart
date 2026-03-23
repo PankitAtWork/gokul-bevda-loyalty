@@ -22,6 +22,7 @@ class _LoginPasswordWidgetState extends State<LoginPasswordWidget> {
 
   bool _isPhoneInput = false;
   String _selectedCountryCode = '+1';
+  bool _obscurePassword = true;
 
   @override
   void initState() {
@@ -173,7 +174,7 @@ class _LoginPasswordWidgetState extends State<LoginPasswordWidget> {
               TextFormField(
                 // makes it automatically smaller
                 controller: _passwordController,
-                obscureText: true,
+                obscureText: _obscurePassword,
                 decoration: InputDecoration(
                   hintText: 'Password',
                   contentPadding: EdgeInsets.symmetric(
@@ -201,9 +202,16 @@ class _LoginPasswordWidgetState extends State<LoginPasswordWidget> {
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide(color: AppTheme.primary, width: 1),
                   ),
-                  suffixIcon: Icon(
-                    Icons.remove_red_eye,
-                    color: Colors.grey.shade500,
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                      color: Colors.grey.shade500,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _obscurePassword = !_obscurePassword;
+                      });
+                    },
                   ),
                 ),
                 validator: (v) {

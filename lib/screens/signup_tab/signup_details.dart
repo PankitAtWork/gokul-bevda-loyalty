@@ -19,52 +19,29 @@ class SignupDetailWidget extends StatefulWidget {
 class _SignupDetailWidgetState extends State<SignupDetailWidget> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _nameCtrl = TextEditingController();
-  final TextEditingController _identifierCtrl = TextEditingController();
+  final TextEditingController _emailCtrl = TextEditingController();
+  final TextEditingController _phoneCtrl = TextEditingController();
 
-  bool _isPhoneInput = false;
   String _selectedCountryCode = '+1';
-
-  @override
-  void initState() {
-    super.initState();
-    _identifierCtrl.addListener(_checkInputType);
-  }
-
-  void _checkInputType() {
-    final text = _identifierCtrl.text.trim();
-    if (text.isNotEmpty) {
-      // Check if the first character is a digit or a plus sign
-      final firstChar = text[0];
-      final isPhone = RegExp(r'[0-9+]').hasMatch(firstChar);
-
-      if (_isPhoneInput != isPhone) {
-        setState(() {
-          _isPhoneInput = isPhone;
-        });
-      }
-    } else {
-      if (_isPhoneInput != false) {
-        setState(() {
-          _isPhoneInput = false;
-        });
-      }
-    }
-  }
 
   @override
   void dispose() {
     _nameCtrl.dispose();
-    _identifierCtrl.dispose();
+    _emailCtrl.dispose();
+    _phoneCtrl.dispose();
     super.dispose();
   }
 
   Future<void> _sendSignupOtp(AuthProvider auth) async {
     if (!_formKey.currentState!.validate()) return;
     auth.currentName = _nameCtrl.text.trim();
+    auth.currentEmail = _emailCtrl.text.trim();
+    auth.currentPhone = _phoneCtrl.text.trim();
+    
     final ok = await auth.sendOtp(
-      identifier: _identifierCtrl.text.trim(),
+      identifier: _phoneCtrl.text.trim(),
       purpose: 'signup',
-      countryCode: _isPhoneInput ? _selectedCountryCode : null,
+      countryCode: _selectedCountryCode,
       ctx: context,
     );
     if (ok) {
@@ -127,60 +104,9 @@ class _SignupDetailWidgetState extends State<SignupDetailWidget> {
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
-                    controller: _identifierCtrl,
+                    controller: _emailCtrl,
                     decoration: InputDecoration(
-                      hintText: 'Phone or Email',
-                      prefixIcon: _isPhoneInput
-                          ? Container(
-                              padding: const EdgeInsets.only(
-                                left: 12,
-                                right: 8,
-                              ),
-                              margin: const EdgeInsets.only(right: 8),
-                              decoration: BoxDecoration(
-                                border: Border(
-                                  right: BorderSide(
-                                    color: AppTheme.unselected_tab_color,
-                                    width: 1,
-                                  ),
-                                ),
-                              ),
-                              child: DropdownButtonHideUnderline(
-                                child: DropdownButton<String>(
-                                  value: _selectedCountryCode,
-                                  icon: const Icon(
-                                    Icons.arrow_drop_down,
-                                    size: 20,
-                                  ),
-                                  isDense: true,
-                                  onChanged: (String? newValue) {
-                                    if (newValue != null) {
-                                      setState(() {
-                                        _selectedCountryCode = newValue;
-                                      });
-                                    }
-                                  },
-                                  items: <String>['+1', '+91']
-                                      .map<DropdownMenuItem<String>>((
-                                        String value,
-                                      ) {
-                                        return DropdownMenuItem<String>(
-                                          value: value,
-                                          child: Text(
-                                            value,
-                                            style: const TextStyle(
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.w500,
-                                              fontFamily: 'Roboto Flex',
-                                            ),
-                                          ),
-                                        );
-                                      })
-                                      .toList(),
-                                ),
-                              ),
-                            )
-                          : null,
+                      hintText: 'Email',
                       filled: true,
                       fillColor: AppTheme.bg,
                       hintStyle: TextStyle(
@@ -209,11 +135,103 @@ class _SignupDetailWidgetState extends State<SignupDetailWidget> {
                         ),
                       ),
                     ),
+                    keyboardType: TextInputType.emailAddress,
+                    validator: (v) {
+                      final s = (v ?? '').trim();
+                      if (s.isEmpty) return 'Required';
+                      if (!Validators.isEmailOrPhone(s) || !s.contains('@'))
+                        return 'Enter valid email';
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _phoneCtrl,
+                    decoration: InputDecoration(
+                      hintText: 'Phone Number',
+                      prefixIcon: Container(
+                        padding: const EdgeInsets.only(
+                          left: 12,
+                          right: 8,
+                        ),
+                        margin: const EdgeInsets.only(right: 8),
+                        decoration: BoxDecoration(
+                          border: Border(
+                            right: BorderSide(
+                              color: AppTheme.unselected_tab_color,
+                              width: 1,
+                            ),
+                          ),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: _selectedCountryCode,
+                            icon: const Icon(
+                              Icons.arrow_drop_down,
+                              size: 20,
+                            ),
+                            isDense: true,
+                            onChanged: (String? newValue) {
+                              if (newValue != null) {
+                                setState(() {
+                                  _selectedCountryCode = newValue;
+                                });
+                              }
+                            },
+                            items: <String>['+1', '+91']
+                                .map<DropdownMenuItem<String>>((
+                                  String value,
+                                ) {
+                                  return DropdownMenuItem<String>(
+                                    value: value,
+                                    child: Text(
+                                      value,
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w500,
+                                        fontFamily: 'Roboto Flex',
+                                      ),
+                                    ),
+                                  );
+                                })
+                                .toList(),
+                          ),
+                        ),
+                      ),
+                      filled: true,
+                      fillColor: AppTheme.bg,
+                      hintStyle: TextStyle(
+                        color: AppTheme.unselected_tab_color,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        fontFamily: 'Roboto Flex',
+                      ),
+                      contentPadding: EdgeInsets.symmetric(
+                        vertical: 12,
+                        horizontal: 10,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: AppTheme.unselected_tab_color,
+                          width: 1,
+                          style: BorderStyle.solid,
+                        ),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: AppTheme.primary,
+                          width: 1,
+                        ),
+                      ),
+                    ),
+                    keyboardType: TextInputType.phone,
                     validator: (v) {
                       final s = (v ?? '').trim();
                       if (s.isEmpty) return 'Required';
                       if (!Validators.isEmailOrPhone(s))
-                        return 'Enter valid phone or email';
+                        return 'Enter valid phone number';
                       return null;
                     },
                   ),
