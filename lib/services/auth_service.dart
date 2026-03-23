@@ -228,4 +228,71 @@ class AuthService {
     _logApiCall(ApiEndpoints.deleteAccount, null, headers, resp);
     return resp;
   }
+
+  /// Change Password
+  Future<Response> changePassword({
+    required int customerId,
+    required String newPassword,
+  }) async {
+    final headers = <String, dynamic>{
+      'UserId': 'i/jvNw56275GboRZu0XoNQ==', // Static
+      'Password': 'no4mXKgy2gnpvdDDjXG49A==',
+      'CustId': customerId.toString(),
+      'Cust_Password': newPassword,
+    };
+    final resp = await api.dio.post(
+      ApiEndpoints.changePassword,
+      options: Options(headers: headers),
+    );
+    _logApiCall(ApiEndpoints.changePassword, null, headers, resp);
+    return resp;
+  }
+
+  Future<Response> getCustomer({
+    required int customerId,
+    String? phone,
+  }) async {
+    final headers = <String, dynamic>{
+      'UserId': 'i/jvNw56275GboRZu0XoNQ==', // Static
+      'Password': 'no4mXKgy2gnpvdDDjXG49A==', // Static
+      'CustomerId': customerId.toString(),
+      'Phone': phone ?? '',
+    };
+    final resp = await api.dio.get(
+      ApiEndpoints.getCustomer,
+      options: Options(headers: headers),
+    );
+    _logApiCall(ApiEndpoints.getCustomer, null, headers, resp);
+    return resp;
+  }
+
+  /// Update Customer details
+  Future<Response> updateCustomer({
+    required int customerId,
+    required String firstName,
+    required String lastName,
+    String? birthday,
+    String? address,
+    String? city,
+    String? state,
+  }) async {
+    final headers = <String, dynamic>{
+      'UserId': 'i/jvNw56275GboRZu0XoNQ==', // Static
+      'Password': 'no4mXKgy2gnpvdDDjXG49A==',
+      'CustId': customerId.toString(),
+      'FirstName': firstName,
+      'LastName': lastName,
+      'Birthday': birthday ?? '',
+      'Address': address ?? '',
+      'City': city ?? '',
+      'State': state ?? '',
+    };
+    final resp = await api.dio.get(
+      ApiEndpoints.updateCustomer,
+      options: Options(headers: headers),
+    );
+    _logApiCall(ApiEndpoints.updateCustomer, null, headers, resp);
+    return resp;
+  }
 }
+

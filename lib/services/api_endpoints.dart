@@ -5,6 +5,8 @@ class ApiEndpoints {
   static const String verifyOtp = '/Verifyotp';
   static const String createAccount = '/create-account';
   static const String deleteAccount = '/DeleteCustomer';
+  static const String changePassword = '/changepassword';
+  static const String updateCustomer = '/UpdateCustomer';
   // Home screen endpoints
   static const String getUserPoints = '/user/points';
   static const String getSpecialOffers = '/special-offers';
@@ -20,4 +22,5 @@ class ApiEndpoints {
   static const String generateRedemptionCode = '/rewards/generate-code';
   static const String dashboard = '/dashboard';
   static const String transactionHistory = '/GetCustomerTransactionHistory';
+  static const String getCustomer = '/GetCustomer';
 }
