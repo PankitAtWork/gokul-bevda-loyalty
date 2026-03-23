@@ -13,7 +13,8 @@ import 'package:gal/gal.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../providers/auth_provider.dart';
 import '../../utils/theme.dart';
-
+import '../../models/user.dart';
+import '../../widgets/edit_profile_sheet.dart';
 class BarcodeTabContent extends StatefulWidget {
   const BarcodeTabContent({super.key});
 
@@ -40,11 +41,12 @@ class _BarcodeTabContentState extends State<BarcodeTabContent> {
 
     try {
       if (mounted) {
-        // Fetch dashboard data to ensure points are up to date
-        await Provider.of<AuthProvider>(
-          context,
-          listen: false,
-        ).fetchDashboard(context);
+        // Fetch dashboard data and latest user data
+        final auth = Provider.of<AuthProvider>(context, listen: false);
+        await Future.wait([
+          auth.fetchDashboard(context),
+          auth.fetchLatestUserData(context),
+        ]);
 
         final qrString = _generateQrData(context);
         Map<String, dynamic> data = {};
@@ -396,6 +398,9 @@ class _BarcodeTabContentState extends State<BarcodeTabContent> {
       );
     }
 
+    final auth = Provider.of<AuthProvider>(context);
+    final user = auth.currentUser;
+
     return SingleChildScrollView(
       child: Column(
         children: [
@@ -403,59 +408,35 @@ class _BarcodeTabContentState extends State<BarcodeTabContent> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Expanded(
-                  child: Text(
-                    'Your Rewards QR Code',
-                    style: TextStyle(
-                      color: Colors.black,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      fontFamily: 'Roboto Flex',
-                    ),
-                    textAlign: TextAlign.center,
+                const Text(
+                  'Profile',
+                  style: TextStyle(
+                    color: Colors.black,
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    fontFamily: 'Roboto Flex',
                   ),
+                ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.edit, size: 24, color: AppTheme.primary),
+                      onPressed: () => _showEditProfileSheet(context),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.qr_code_2, size: 28, color: AppTheme.primary),
+                      onPressed: () => _showQrBottomSheet(context),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
 
-          // Instruction text
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 0),
-            child: Text(
-              'Scan at checkout to earn or redeem points',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.black,
-                fontFamily: 'Roboto Flex',
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ),
-
-          const SizedBox(height: 40),
-
-          // QR Code
-          Center(
-            child: QrImageView(
-              data: _generateQrData(context),
-              version: QrVersions.auto,
-              size: 240.0,
-              gapless: false,
-              backgroundColor: Colors.white,
-              errorStateBuilder: (cxt, err) {
-                return const Center(
-                  child: Text(
-                    "Error generating QR code",
-                    textAlign: TextAlign.center,
-                  ),
-                );
-              },
-            ),
-          ),
-
-          const SizedBox(height: 40),
+          const SizedBox(height: 16),
 
           // User Info Card with red shadow rectangle
           Padding(
@@ -507,7 +488,6 @@ class _BarcodeTabContentState extends State<BarcodeTabContent> {
                                 fontFamily: 'Roboto Flex',
                               ),
                             ),
-
                             const SizedBox(height: 8),
                             Text(
                               '${_getUserPoints(context)} Points Available',
@@ -530,87 +510,15 @@ class _BarcodeTabContentState extends State<BarcodeTabContent> {
 
           const SizedBox(height: 32),
 
-          // Action Buttons
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 10),
-            child: Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: _shareQrCode,
-                    icon: SvgPicture.asset(
-                      'assets/images/share.svg',
-                      width: 20,
-                      height: 20,
-                      colorFilter: const ColorFilter.mode(
-                        AppTheme.primary,
-                        BlendMode.srcIn,
-                      ),
-                    ),
-                    label: const Text(
-                      'Share',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        fontFamily: 'Roboto Flex',
-                      ),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: AppTheme.primary,
-                      elevation: 0,
+          // Detailed User Info
+          if (user != null) ...[
+            _buildInfoRow('First Name', user.firstName ?? 'N/A'),
+            _buildInfoRow('Last Name', user.lastName ?? 'N/A'),
+            _buildInfoRow('Birthday', _formatDate(user.birthDate) ?? 'N/A'),
+            _buildInfoRow('Address', _formatAddress(user)),
+          ],
 
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(25),
-                        side: const BorderSide(
-                          color: AppTheme.primary,
-                          width: 1,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: _saveQrCode,
-                    icon: SvgPicture.asset(
-                      'assets/images/download.svg',
-                      width: 20,
-                      height: 20,
-                      colorFilter: const ColorFilter.mode(
-                        AppTheme.primary,
-                        BlendMode.srcIn,
-                      ),
-                    ),
-                    label: const Text(
-                      'Save',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        fontFamily: 'Roboto Flex',
-                      ),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: AppTheme.primary,
-                      elevation: 0,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(25),
-                        side: const BorderSide(
-                          color: AppTheme.primary,
-                          width: 1,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 24),
+          const SizedBox(height: 32),
 
           // Logout Button
           Padding(
@@ -671,6 +579,239 @@ class _BarcodeTabContentState extends State<BarcodeTabContent> {
           const SizedBox(height: 32),
         ],
       ),
+    );
+  }
+
+  String? _formatDate(String? dateStr) {
+    if (dateStr == null || dateStr.isEmpty) return null;
+    if (dateStr.contains('T')) {
+      return dateStr.split('T')[0];
+    }
+    return dateStr;
+  }
+
+  String _formatAddress(User user) {
+    List<String> parts = [];
+    if (user.address1 != null && user.address1!.isNotEmpty) parts.add(user.address1!);
+    if (user.address2 != null && user.address2!.isNotEmpty) parts.add(user.address2!);
+    if (user.city != null && user.city!.isNotEmpty) parts.add(user.city!);
+    if (user.stateRegion != null && user.stateRegion!.isNotEmpty) parts.add(user.stateRegion!);
+    if (user.country != null && user.country!.isNotEmpty) parts.add(user.country!);
+    return parts.isEmpty ? 'N/A' : parts.join(', ');
+  }
+
+  Widget _buildInfoRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 13,
+              color: Colors.grey,
+              fontWeight: FontWeight.w500,
+              fontFamily: 'Roboto Flex',
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 16,
+              color: Colors.black87,
+              fontWeight: FontWeight.w600,
+              fontFamily: 'Roboto Flex',
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Divider(height: 1, thickness: 1, color: Color(0xFFEEEEEE)),
+        ],
+      ),
+    );
+  }
+
+  void _showEditProfileSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => const EditProfileSheet(),
+    );
+  }
+
+  void _showQrBottomSheet(BuildContext context) {
+    Scaffold.of(context).showBottomSheet(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      (ctx) {
+        return Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(24),
+              topRight: Radius.circular(24),
+            ),
+            boxShadow: const [
+              BoxShadow(
+                color: Colors.black12,
+                blurRadius: 10,
+                spreadRadius: 2,
+                offset: Offset(0, -4),
+              ),
+            ],
+          ),
+          padding: const EdgeInsets.only(top: 24, left: 16, right: 16),
+          child: SafeArea(
+            top: false,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Handle
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[300],
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  const Text(
+                    'Your Rewards QR Code',
+                    style: TextStyle(
+                      color: Colors.black,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      fontFamily: 'Roboto Flex',
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Scan at checkout to earn or redeem points',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.black54,
+                      fontFamily: 'Roboto Flex',
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 32),
+                  Center(
+                    child: QrImageView(
+                      data: _generateQrData(context),
+                      version: QrVersions.auto,
+                      size: 240.0,
+                      gapless: false,
+                      backgroundColor: Colors.white,
+                      errorStateBuilder: (cxt, err) {
+                        return const Center(
+                          child: Text(
+                            "Error generating QR code",
+                            textAlign: TextAlign.center,
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+                  // Action Buttons
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () {
+                              Navigator.pop(ctx);
+                              _shareQrCode();
+                            },
+                            icon: SvgPicture.asset(
+                              'assets/images/share.svg',
+                              width: 20,
+                              height: 20,
+                              colorFilter: const ColorFilter.mode(
+                                AppTheme.primary,
+                                BlendMode.srcIn,
+                              ),
+                            ),
+                            label: const Text(
+                              'Share',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                fontFamily: 'Roboto Flex',
+                              ),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              foregroundColor: AppTheme.primary,
+                              elevation: 0,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(25),
+                                side: const BorderSide(
+                                  color: AppTheme.primary,
+                                  width: 1,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () {
+                              Navigator.pop(ctx);
+                              _saveQrCode();
+                            },
+                            icon: SvgPicture.asset(
+                              'assets/images/download.svg',
+                              width: 20,
+                              height: 20,
+                              colorFilter: const ColorFilter.mode(
+                                AppTheme.primary,
+                                BlendMode.srcIn,
+                              ),
+                            ),
+                            label: const Text(
+                              'Save',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                fontFamily: 'Roboto Flex',
+                              ),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              foregroundColor: AppTheme.primary,
+                              elevation: 0,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(25),
+                                side: const BorderSide(
+                                  color: AppTheme.primary,
+                                  width: 1,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 64),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

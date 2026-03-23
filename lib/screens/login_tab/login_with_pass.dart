@@ -6,6 +6,7 @@ import '../../widgets/primary_button.dart';
 import '../../widgets/terms_privacy_text.dart';
 import '../../utils/theme.dart';
 import '../../utils/validators.dart';
+import 'forgot_password_sheet.dart';
 
 class LoginPasswordWidget extends StatefulWidget {
   const LoginPasswordWidget({Key? key}) : super(key: key);
@@ -222,7 +223,16 @@ class _LoginPasswordWidgetState extends State<LoginPasswordWidget> {
               ),
               const SizedBox(height: 15),
               TextButton(
-                onPressed: auth.uiBlocked ? null : () {},
+                onPressed: auth.uiBlocked
+                    ? null
+                    : () {
+                        auth.resetOtpState();
+                        showModalBottomSheet(
+                          context: context,
+                          isScrollControlled: true,
+                          builder: (_) => const ForgotPasswordSheet(),
+                        );
+                      },
                 child: Text(
                   'Forgot Password?',
                   style: TextStyle(

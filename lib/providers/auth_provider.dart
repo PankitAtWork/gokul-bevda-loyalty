@@ -10,7 +10,14 @@ import '../models/dashboard_data.dart';
 import '../models/transaction_history.dart';
 import '../utils/validators.dart';
 
-enum AuthFlow { idle, sendingOtp, verifyingOtp, loggingIn, creatingAccount }
+enum AuthFlow {
+  idle,
+  sendingOtp,
+  verifyingOtp,
+  loggingIn,
+  creatingAccount,
+  changingPassword,
+}
 
 class AuthProvider with ChangeNotifier {
   final AuthService authService;
@@ -162,91 +169,85 @@ class AuthProvider with ChangeNotifier {
           if (outerResult == true && responseData.containsKey('Data')) {
             final innerData = responseData['Data'];
 
+            bool isSuccess = false;
+            String innerMsg = responseData['Msg']?.toString() ?? '';
+            List<dynamic>? userList;
+            Map<String, dynamic>? tokenSourceData;
+
             if (innerData is Map<String, dynamic>) {
               final innerResult = innerData['Result'];
               final innerStatus = innerData['Status'];
-              final innerMsg = innerData['Msg']?.toString() ?? '';
+              innerMsg = innerData['Msg']?.toString() ?? innerMsg;
 
               if (innerResult == true && innerStatus == 200) {
-                // Success! Parse User
-                if (innerData.containsKey('Data') &&
-                    innerData['Data'] is List) {
-                  final userList = innerData['Data'] as List;
-                  if (userList.isNotEmpty) {
-                    final userData = userList.first;
-                    if (userData is Map<String, dynamic>) {
-                      try {
-                        currentUser = User.fromJson(userData);
+                isSuccess = true;
+                if (innerData.containsKey('Data') && innerData['Data'] is List) {
+                  userList = innerData['Data'] as List;
+                }
+                tokenSourceData = innerData;
+              }
+            } else if (innerData is List) {
+              isSuccess = true;
+              userList = innerData;
+              tokenSourceData = responseData;
+            }
 
+            if (isSuccess) {
+              if (userList != null && userList.isNotEmpty) {
+                final userData = userList.first;
+                if (userData is Map<String, dynamic>) {
+                  try {
+                    currentUser = User.fromJson(userData);
+                    notifyListeners();
+
+                    // Handle OTP case
+                    if (custOtp) {
+                      var otp = userData['OTP']?.toString();
+                      if (otp == null && tokenSourceData != null && tokenSourceData.containsKey('OTP')) {
+                        otp = tokenSourceData['OTP']?.toString();
+                      }
+                      if (otp != null && otp.isNotEmpty) {
+                        receivedOtp = otp;
                         notifyListeners();
-
-                        // Handle OTP case
-                        if (custOtp) {
-                          // Try to find OTP in response
-                          // It could be in innerData or userData
-                          // Logic says: "return true with OTP, so we will locally handle api verification"
-                          // We need to find where OTP is.
-                          // Assuming it might be in 'OTP' field in data or msg?
-                          // Let's check userData first.
-                          var otp = userData['OTP']?.toString();
-                          if (otp == null && innerData.containsKey('OTP')) {
-                            otp = innerData['OTP']?.toString();
-                          }
-
-                          // If we found OTP, save it and return true.
-                          // The UI will then ask user to enter OTP and compare with this.
-                          if (otp != null && otp.isNotEmpty) {
-                            receivedOtp = otp;
-                            notifyListeners();
-                            return true;
-                          }
-                        }
-
-                        // Handle Token
-                        String? serverToken;
-                        if (userData['istoken'] == true) {
-                          serverToken = userData['tokenno'];
-                        }
-
-                        // If no token in user object, check if we need to backup or use dummy
-                        // keeping existing logic for token fallback if exists elsewhere
-                        if (serverToken == null || serverToken.isEmpty) {
-                          // Look for token in other places just in case
-                          serverToken = innerData['Token'] as String?;
-                        }
-
-                        // Save user data
-                        await _saveUser(currentUser!);
-
-                        // Check customer_id for auth verification as requested
-                        if (currentUser!.customerId != null) {
-                          return true;
-                        } else {
-                          _showError(
-                            ctx,
-                            "Login succeeded but Customer ID missing.",
-                          );
-                          return false;
-                        }
-                      } catch (e) {
-                        print("Error parsing user: $e");
-                        _showError(
-                          ctx,
-                          "Error parsing user data received from server.",
-                        );
-                        return false;
+                        return true;
                       }
                     }
+
+                    // Handle Token
+                    String? serverToken;
+                    if (userData['istoken'] == true) {
+                      serverToken = userData['tokenno'];
+                    }
+                    if (serverToken == null || serverToken.isEmpty) {
+                      if (tokenSourceData != null && tokenSourceData.containsKey('Token')) {
+                        serverToken = tokenSourceData['Token'] as String?;
+                      }
+                    }
+
+                    // Save user data
+                    await _saveUser(currentUser!);
+
+                    // Check customer_id for auth verification as requested
+                    if (currentUser!.customerId != null) {
+                      return true;
+                    } else {
+                      _showError(ctx, "Login succeeded but Customer ID missing.");
+                      return false;
+                    }
+                  } catch (e) {
+                    print("Error parsing user: $e");
+                    _showError(ctx, "Error parsing user data received from server.");
+                    return false;
                   }
                 }
-              } else {
-                // Inner failure
-                final errorMsg = innerMsg.isNotEmpty
-                    ? innerMsg
-                    : 'Authentication failed. Please check your credentials and try again.';
-                _showError(ctx, errorMsg);
-                return false;
               }
+            } else {
+              // Inner failure
+              final errorMsg = innerMsg.isNotEmpty
+                  ? innerMsg
+                  : 'Authentication failed. Please check your credentials and try again.';
+              _showError(ctx, errorMsg);
+              return false;
             }
           }
         }
@@ -474,7 +475,13 @@ class AuthProvider with ChangeNotifier {
 
           if (userFound && parsedUser != null) {
             currentUser = parsedUser;
-            await _saveUser(currentUser!);
+
+            // Only save the session automatically if the user is explicitly logging in.
+            // For forgot password or signup workflows, keep it in memory only.
+            if (otpPurpose == 'login') {
+              await _saveUser(currentUser!);
+            }
+
             notifyListeners();
 
             if (otpPurpose == 'login') {
@@ -699,6 +706,17 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
+  /// Resets the OTP state for UI logic (like closing/reopening bottom sheets)
+  void resetOtpState() {
+    otpSent = false;
+    otpPurpose = null;
+    // We optionally keep or reset currentIdentifier based on if we want to retain the typed value.
+    // However, the sheet uses its own local controller for the input, so resetting currentIdentifier is fine.
+    currentIdentifier = null;
+    verificationToken = null;
+    notifyListeners();
+  }
+
   /// Clear auth (for logout)
   Future<void> clearAuth() async {
     final sp = await SharedPreferences.getInstance();
@@ -715,6 +733,102 @@ class AuthProvider with ChangeNotifier {
     verificationToken = null;
     signupOtp = null;
     notifyListeners();
+  }
+
+  /// Change Password
+  Future<bool> changePassword(String newPassword, BuildContext ctx) async {
+    if (currentUser == null || currentUser!.customerId == null) {
+      _showError(
+        ctx,
+        'Customer information not found. Cannot change password.',
+      );
+      return false;
+    }
+
+    _setUiBlocked(true);
+    _setFlow(AuthFlow.changingPassword);
+
+    try {
+      final resp = await authService.changePassword(
+        customerId: currentUser!.customerId!,
+        newPassword: newPassword,
+      );
+
+      if (resp.statusCode == 200) {
+        var responseData = resp.data;
+
+        // Handle string response decoding if needed
+        if (responseData is String) {
+          try {
+            responseData = jsonDecode(responseData);
+          } catch (e) {
+            print("Failed to decode response: $e");
+          }
+        }
+
+        if (responseData is Map<String, dynamic>) {
+          bool outerResult = responseData['Result'] == true;
+          bool innerResult = false;
+          String errorMsg = responseData['Msg']?.toString() ?? '';
+
+          if (responseData['Data'] != null &&
+              responseData['Data'] is Map<String, dynamic>) {
+            final innerData = responseData['Data'];
+            innerResult = innerData['Result'] == true;
+            if (innerData['Msg'] != null &&
+                innerData['Msg'].toString().isNotEmpty) {
+              errorMsg = innerData['Msg'].toString();
+            }
+          } else if (outerResult) {
+            innerResult = true;
+          }
+
+          if (outerResult && innerResult) {
+            // Wipe the temporary auth state used passing the customer ID to the payload.
+            // The user must explicitly log back in using their new credentials.
+            await clearAuth();
+
+            if (ctx.mounted) {
+              ScaffoldMessenger.of(ctx).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    errorMsg.isNotEmpty
+                        ? errorMsg
+                        : 'Password changed successfully',
+                  ),
+                ),
+              );
+            }
+            return true;
+          } else {
+            _showError(
+              ctx,
+              errorMsg.isNotEmpty ? errorMsg : 'Failed to change password.',
+            );
+            return false;
+          }
+        } else {
+          _showError(ctx, 'Unexpected response format.');
+          return false;
+        }
+      } else {
+        _showError(ctx, resp.data?.toString() ?? 'Failed to change password.');
+        return false;
+      }
+    } on DioException catch (e) {
+      final msg =
+          e.response?.data?.toString() ??
+          e.message ??
+          'Failed to change password.';
+      _showError(ctx, msg);
+      return false;
+    } catch (e) {
+      _showError(ctx, e.toString());
+      return false;
+    } finally {
+      _setUiBlocked(false);
+      _setFlow(AuthFlow.idle);
+    }
   }
 
   /// Delete Account
@@ -874,6 +988,131 @@ class AuthProvider with ChangeNotifier {
     } finally {
       loadingTransactionHistory = false;
       notifyListeners();
+    }
+  }
+
+  /// Update user profile
+  Future<bool> updateUserProfile(User updatedUser, BuildContext ctx) async {
+    if (currentUser == null || currentUser!.customerId == null) {
+      _showError(ctx, 'Customer information not found. Cannot update profile.');
+      return false;
+    }
+
+    _setUiBlocked(true);
+    notifyListeners();
+    try {
+      final resp = await authService.updateCustomer(
+        customerId: currentUser!.customerId!,
+        firstName: updatedUser.firstName ?? '',
+        lastName: updatedUser.lastName ?? '',
+        birthday: updatedUser.birthDate,
+        address: updatedUser.address1,
+        city: updatedUser.city,
+        state: updatedUser.stateRegion,
+      );
+
+      if (resp.statusCode == 200) {
+        var responseData = resp.data;
+        if (responseData is String) {
+          try {
+            responseData = jsonDecode(responseData);
+          } catch (e) {
+            print("Failed to decode response: $e");
+          }
+        }
+
+        if (responseData is Map<String, dynamic>) {
+          bool outerResult = responseData['Result'] == true;
+          bool innerResult = false;
+          String errorMsg = responseData['Msg']?.toString() ?? '';
+
+          if (responseData['Data'] != null && responseData['Data'] is Map<String, dynamic>) {
+            final innerData = responseData['Data'];
+            innerResult = innerData['Result'] == true;
+            if (innerData['Msg'] != null && innerData['Msg'].toString().isNotEmpty) {
+              errorMsg = innerData['Msg'].toString();
+            }
+          } else if (outerResult) {
+            innerResult = true;
+          }
+
+          if (outerResult && innerResult) {
+            currentUser = updatedUser;
+            await _saveUser(currentUser!);
+            notifyListeners();
+
+            if (ctx.mounted) {
+              ScaffoldMessenger.of(ctx).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    errorMsg.isNotEmpty ? errorMsg : 'Profile updated successfully',
+                  ),
+                ),
+              );
+            }
+            return true;
+          } else {
+            _showError(ctx, errorMsg.isNotEmpty ? errorMsg : 'Failed to update profile.');
+            return false;
+          }
+        } else {
+           _showError(ctx, 'Unexpected response format.');
+           return false;
+        }
+      } else {
+        _showError(ctx, resp.data?.toString() ?? 'Failed to update profile.');
+        return false;
+      }
+    } on DioException catch (e) {
+      final msg = e.response?.data?.toString() ?? e.message ?? 'Failed to update profile.';
+      if (ctx.mounted) {
+        _showError(ctx, msg);
+      }
+      return false;
+    } catch (e) {
+      if (ctx.mounted) {
+        _showError(ctx, 'Failed to update profile: $e');
+      }
+      return false;
+    } finally {
+      _setUiBlocked(false);
+      notifyListeners();
+    }
+  }
+
+  /// Fetch latest user data from server
+  Future<void> fetchLatestUserData(BuildContext ctx) async {
+    if (currentUser == null || currentUser!.customerId == null) return;
+
+    try {
+      final resp = await authService.getCustomer(
+        customerId: currentUser!.customerId!,
+        phone: currentIdentifier ?? currentUser!.phone1 ?? currentUser!.cell,
+      );
+
+      if (resp.statusCode == 200) {
+        final responseData = resp.data;
+        if (responseData is Map<String, dynamic> &&
+            responseData['Result'] == true &&
+            responseData['Data'] != null) {
+          
+          final innerData = responseData['Data'];
+          if (innerData is List && innerData.isNotEmpty) {
+             final userData = innerData.first;
+             if (userData is Map<String, dynamic>) {
+               try {
+                 currentUser = User.fromJson(userData);
+                 await _saveUser(currentUser!);
+                 notifyListeners();
+               } catch (e) {
+                 print("Error parsing user from GetCustomer: $e");
+               }
+             }
+          }
+        }
+      }
+    } catch (e) {
+      print("Error fetching latest user data: $e");
     }
   }
 }
