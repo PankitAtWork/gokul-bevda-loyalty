@@ -44,9 +44,9 @@ class _EditProfileSheetState extends State<EditProfileSheet> {
         if (dob.contains('-')) {
           parsedDate = DateTime.parse(dob);
         } else {
-          parsedDate = DateFormat('dd/MM/yyyy').parse(dob);
+          parsedDate = DateFormat('MM/dd/yyyy').parse(dob);
         }
-        dob = DateFormat('dd/MM/yyyy').format(parsedDate);
+        dob = DateFormat('MM/dd/yyyy').format(parsedDate);
       } catch (e) {
         // If parsing fails, just keep the original string
       }
@@ -58,7 +58,7 @@ class _EditProfileSheetState extends State<EditProfileSheet> {
     DateTime initialDate = DateTime.now();
     if (_birthDateController.text.isNotEmpty) {
       try {
-        initialDate = DateFormat('dd/MM/yyyy').parse(_birthDateController.text);
+        initialDate = DateFormat('MM/dd/yyyy').parse(_birthDateController.text);
       } catch (e) {
         // ignore
       }
@@ -85,7 +85,7 @@ class _EditProfileSheetState extends State<EditProfileSheet> {
     
     if (picked != null) {
       setState(() {
-        _birthDateController.text = DateFormat('dd/MM/yyyy').format(picked);
+        _birthDateController.text = DateFormat('MM/dd/yyyy').format(picked);
       });
     }
   }
@@ -281,7 +281,7 @@ class _EditProfileSheetState extends State<EditProfileSheet> {
                         ],
                       ),
                       _buildTextField('Email', _emailController, isEmail: true),
-                      _buildTextField('Birth Date', _birthDateController, isDate: true, isOptional: true, readOnly: true, onTap: () => _selectDate(context)),
+                      _buildTextField('Birth Date (mm/dd/yyyy)', _birthDateController, isDate: true, isOptional: true, readOnly: true, onTap: () => _selectDate(context)),
                       _buildTextField('Address', _address1Controller, isOptional: true),
                       Row(
                         children: [

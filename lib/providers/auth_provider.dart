@@ -124,6 +124,7 @@ class AuthProvider with ChangeNotifier {
 
   // Generic error dialog helper (caller must supply BuildContext)
   void _showError(BuildContext ctx, String message) {
+    if (!ctx.mounted) return;
     showDialog(
       context: ctx,
       builder: (_) => AlertDialog(
@@ -751,6 +752,7 @@ class AuthProvider with ChangeNotifier {
 
     _setUiBlocked(true);
     _setFlow(AuthFlow.changingPassword);
+    final messenger = ScaffoldMessenger.of(ctx); // Capture synchronously
 
     try {
       final resp = await authService.changePassword(
@@ -793,7 +795,7 @@ class AuthProvider with ChangeNotifier {
             await clearAuth();
 
             if (ctx.mounted) {
-              ScaffoldMessenger.of(ctx).showSnackBar(
+              messenger.showSnackBar(
                 SnackBar(
                   content: Text(
                     errorMsg.isNotEmpty
@@ -996,6 +998,8 @@ class AuthProvider with ChangeNotifier {
 
     _setUiBlocked(true);
     notifyListeners();
+    final messenger = ScaffoldMessenger.of(ctx); // Capture synchronously
+
     try {
       final resp = await authService.updateCustomer(
         customerId: currentUser!.customerId!,
@@ -1038,7 +1042,7 @@ class AuthProvider with ChangeNotifier {
             notifyListeners();
 
             if (ctx.mounted) {
-              ScaffoldMessenger.of(ctx).showSnackBar(
+              messenger.showSnackBar(
                 SnackBar(
                   content: Text(
                     errorMsg.isNotEmpty ? errorMsg : 'Profile updated successfully',

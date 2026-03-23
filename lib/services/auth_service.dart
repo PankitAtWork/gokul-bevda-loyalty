@@ -121,7 +121,6 @@ class AuthService {
     // "verifyotp's response will be same as login api"
   }) async {
     final isEmail = identifier.contains('@');
-    
     final headers = <String, dynamic>{
       'UserId': 'i/jvNw56275GboRZu0XoNQ==', // Static
       'Password': 'no4mXKgy2gnpvdDDjXG49A==', // Static

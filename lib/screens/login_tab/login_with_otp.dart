@@ -75,6 +75,7 @@ class _LoginOtpWidgetState extends State<LoginOtpWidget> {
       ctx: context,
     );
     if (ok) {
+      if (!mounted) return;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('OTP sent')));

@@ -37,7 +37,7 @@ class _SignupDetailWidgetState extends State<SignupDetailWidget> {
     auth.currentName = _nameCtrl.text.trim();
     auth.currentEmail = _emailCtrl.text.trim();
     auth.currentPhone = _phoneCtrl.text.trim();
-    
+
     final ok = await auth.sendOtp(
       identifier: _phoneCtrl.text.trim(),
       purpose: 'signup',
@@ -45,6 +45,7 @@ class _SignupDetailWidgetState extends State<SignupDetailWidget> {
       ctx: context,
     );
     if (ok) {
+      if (!mounted) return;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('OTP sent for signup')));
@@ -150,10 +151,7 @@ class _SignupDetailWidgetState extends State<SignupDetailWidget> {
                     decoration: InputDecoration(
                       hintText: 'Phone Number',
                       prefixIcon: Container(
-                        padding: const EdgeInsets.only(
-                          left: 12,
-                          right: 8,
-                        ),
+                        padding: const EdgeInsets.only(left: 12, right: 8),
                         margin: const EdgeInsets.only(right: 8),
                         decoration: BoxDecoration(
                           border: Border(
@@ -166,10 +164,7 @@ class _SignupDetailWidgetState extends State<SignupDetailWidget> {
                         child: DropdownButtonHideUnderline(
                           child: DropdownButton<String>(
                             value: _selectedCountryCode,
-                            icon: const Icon(
-                              Icons.arrow_drop_down,
-                              size: 20,
-                            ),
+                            icon: const Icon(Icons.arrow_drop_down, size: 20),
                             isDense: true,
                             onChanged: (String? newValue) {
                               if (newValue != null) {
@@ -179,9 +174,7 @@ class _SignupDetailWidgetState extends State<SignupDetailWidget> {
                               }
                             },
                             items: <String>['+1', '+91']
-                                .map<DropdownMenuItem<String>>((
-                                  String value,
-                                ) {
+                                .map<DropdownMenuItem<String>>((String value) {
                                   return DropdownMenuItem<String>(
                                     value: value,
                                     child: Text(

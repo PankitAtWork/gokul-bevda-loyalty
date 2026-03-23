@@ -1,6 +1,7 @@
 // lib/screens/tabs/barcode_tab.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
@@ -589,10 +590,24 @@ class _BarcodeTabContentState extends State<BarcodeTabContent> {
 
   String? _formatDate(String? dateStr) {
     if (dateStr == null || dateStr.isEmpty) return null;
-    if (dateStr.contains('T')) {
-      return dateStr.split('T')[0];
+    try {
+      DateTime parsedDate;
+      if (dateStr.contains('T')) {
+        dateStr = dateStr.split('T')[0];
+      }
+      if (dateStr.contains('-')) {
+        parsedDate = DateTime.parse(dateStr);
+      } else {
+        // Assume API returns string formatted around MM/dd/yyyy or similar
+        parsedDate = DateFormat('MM/dd/yyyy').parse(dateStr);
+      }
+      return DateFormat('MM/dd/yyyy').format(parsedDate);
+    } catch (e) {
+      if (dateStr!.contains('T')) {
+        return dateStr.split('T')[0];
+      }
+      return dateStr;
     }
-    return dateStr;
   }
 
   String _formatAddress(User user) {
