@@ -7,7 +7,6 @@ class ApiEndpoints {
   static const String deleteAccount = '/Delete';
   static const String changePassword = '/changepassword';
   static const String updateCustomer = '/UpdateCustomer';
-
   // Home screen endpoints
   static const String getUserPoints = '/user/points';
   static const String getSpecialOffers = '/special-offers';

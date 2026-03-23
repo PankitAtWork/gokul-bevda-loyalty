@@ -283,6 +283,7 @@ class _BarcodeTabContentState extends State<BarcodeTabContent> {
           TextButton(
             onPressed: () async {
               Navigator.pop(ctx); // Close dialog
+              final messenger = ScaffoldMessenger.of(context);
               final authProvider = Provider.of<AuthProvider>(
                 context,
                 listen: false,
@@ -294,6 +295,10 @@ class _BarcodeTabContentState extends State<BarcodeTabContent> {
                 Navigator.of(
                   context,
                 ).pushNamedAndRemoveUntil('/auth', (route) => false);
+                // Show snackbar after navigation starts so it appears on the new route
+                messenger.showSnackBar(
+                  const SnackBar(content: Text('Account deleted successfully')),
+                );
               }
             },
             child: const Text(

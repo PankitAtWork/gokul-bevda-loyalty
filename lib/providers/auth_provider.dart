@@ -875,15 +875,7 @@ class AuthProvider with ChangeNotifier {
 
           if (isSuccess) {
             // Delete success. Show message and log out.
-            if (ctx.mounted) {
-              ScaffoldMessenger.of(ctx).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    msg.isNotEmpty ? msg : 'Account deleted successfully',
-                  ),
-                ),
-              );
-            }
+
             await clearAuth();
             return true;
           } else {
